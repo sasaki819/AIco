@@ -12,14 +12,14 @@ AIcoのユーザーが仕様をすべて読み込まなくても思想を理解�
 
 | レイヤー | 章 | ファイル | 主に定める内容 | 状態 |
 | :--- | :--- | :--- | :--- | :--- |
-| **1. 思想・前提** | 01 | [01.core-concepts.md](01.core-concepts.md) | 役割分担、SDD、再開可能性、肥大化防止の基準 | ドラフト |
-| | 02 | [02.glossary-and-overview.md](02.glossary-and-overview.md) | 用語定義、類似語の統制、3層の線引き、全体俯瞰図 | ドラフト |
-| **2. 情報と仕事** | 03 | [03.information-management.md](03.information-management.md) | 管理する4種の情報、配置・命名・状態・一覧、文書規約 | ドラフト |
-| | 04 | [04.process-definition.md](04.process-definition.md) | 相談・チケット・定常作業の流れ、判断の節目、レビュー、知見蓄積 | ドラフト |
-| | 05 | [05.branching.md](05.branching.md) | 統合ブランチと作業ブランチの分担、並行作業、worktreeとの境界 | ドラフト |
-| **3. 実行基盤** | 06 | [06.agent-and-skills.md](06.agent-and-skills.md) | 4ツール共通化、`AGENTS.md`・スキル集約、3段階ワーカー、個人設定との境界 | ドラフト |
-| | 07 | [07.script-policy.md](07.script-policy.md) | Python・`uv`一元化、AI直接呼出と人用入口、安全性・`doctor` | ドラフト |
-| **4. 配布と進化** | 08 | [08.adoption-and-updates.md](08.adoption-and-updates.md) | 既存構成を崩さない安全な導入、固有領域の分離、移行手順とマイグレーションスクリプト | ドラフト |
+| **1. 思想・前提** | 01 | [01.core-concepts.md](01.core-concepts.md) | 役割分担、SDD、再開可能性、肥大化防止の基準 | 確定 |
+| | 02 | [02.glossary-and-overview.md](02.glossary-and-overview.md) | 用語定義、類似語の統制、3層の線引き、全体俯瞰図 | 確定 |
+| **2. 情報と仕事** | 03 | [03.information-management.md](03.information-management.md) | 管理する4種の情報、配置・命名・状態・一覧、文書規約 | 確定 |
+| | 04 | [04.process-definition.md](04.process-definition.md) | 相談・チケット・定常作業の流れ、判断の節目、レビュー、知見蓄積 | 確定 |
+| | 05 | [05.branching.md](05.branching.md) | 統合ブランチと作業ブランチの分担、並行作業、worktreeとの境界 | 確定 |
+| **3. 実行基盤** | 06 | [06.agent-and-skills.md](06.agent-and-skills.md) | 4ツール共通化、`AGENTS.md`・スキル集約、3段階ワーカー、個人設定との境界 | 確定 |
+| | 07 | [07.script-policy.md](07.script-policy.md) | Python・`uv`一元化、AI直接呼出と人用入口、安全性・`doctor` | 確定 |
+| **4. 配布と進化** | 08 | [08.adoption-and-updates.md](08.adoption-and-updates.md) | 既存構成を崩さない安全な導入、固有領域の分離、移行手順とマイグレーションスクリプト | 確定 |
 
 ## 運用上の約束
 
