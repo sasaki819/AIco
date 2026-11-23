@@ -21,8 +21,8 @@
 | **04** | [04.branching.md](04.branching.md) | `05` | ブランチ構成と命名、ブランチ別更新責務、起票から統合までの手順、並行作業・worktree境界 | 確定 |
 | **05** | [05.agent-config.md](05.agent-config.md) | `06`, `08` | 4ツール配置マップ、`AGENTS.md`・`CLAUDE.md` 構成、スキル同期仕様、3段階ワーカー定義とモデル設定 | 確定 |
 | **06** | [06.skills.md](06.skills.md) | `03`, `04`, `06` | 全工程スキル一覧（ゼロベース導出）および各スキルの入出力・手順仕様、Markdown作成スキル | 確定 |
-| **07** | [07.scripts.md](07.scripts.md) | `07` | スクリプト共通規約、人用入口、全スクリプトの引数・入出力・テスト仕様 | 確定 |
-| **08** | [08.adoption-and-migration.md](08.adoption-and-migration.md) | `08` | AIco本体リポジトリ構成、初回導入、SemVerリリース、マイグレーション仕様 | 確定 |
+| **07** | [07.scripts.md](07.scripts.md) | `03`, `06`, `07`, `08` | スクリプト共通規約、人用入口、全スクリプトの引数・入出力・テスト仕様 | 確定 |
+| **08** | [08.adoption-and-migration.md](08.adoption-and-migration.md) | `03`, `06`, `07`, `08` | AIco本体リポジトリ構成、初回導入、SemVerリリース、マイグレーション仕様 | 確定 |
 
 ## 運用上の約束
 
