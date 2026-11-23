@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "aico_version": "0.1.0",
+  "source_repository": "https://github.com/sasaki819/AIco.git",
+  "management_root": "management",
+  "integration_branch": "develop",
+  "tools": [
+    "claude",
+    "codex",
+    "antigravity",
+    "copilot"
+  ],
+  "worker_models": {
+    "claude": {
+      "high": {
+        "model": "",
+        "effort": ""
+      },
+      "middle": {
+        "model": "",
+        "effort": ""
+      },
+      "low": {
+        "model": "",
+        "effort": ""
+      }
+    },
+    "codex": {
+      "high": {
+        "model": "",
+        "effort": ""
+      },
+      "middle": {
+        "model": "",
+        "effort": ""
+      },
+      "low": {
+        "model": "",
+        "effort": ""
+      }
+    },
+    "antigravity": {
+      "high": {
+        "model": "",
+        "effort": ""
+      },
+      "middle": {
+        "model": "",
+        "effort": ""
+      },
+      "low": {
+        "model": "",
+        "effort": ""
+      }
+    },
+    "copilot": {
+      "high": {
+        "model": "",
+        "effort": ""
+      },
+      "middle": {
+        "model": "",
+        "effort": ""
+      },
+      "low": {
+        "model": "",
+        "effort": ""
+      }
+    }
+  }
+}

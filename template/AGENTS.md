@@ -1,0 +1,60 @@
+<!-- AICO:BEGIN -->
+# AIco 協業ガイドライン
+
+## 1. AIco の基本原則
+
+AIco は、AI が作業を主導しつつ人間が重要な判断を行う協業ワークフローである。
+以下の原則に従って作業を進めること。
+
+* **AI 主導と人間判断**：調査・起票・計画・設計・実装・レビュー準備は AI が主導し、着手合意（DoR）・レビュー指摘の採否選別・完了承認（DoD）・仕様矛盾の解消は必ず人間の判断を得る。
+* **管理ルートでの情報集約**：相談（議事録）・ADR・チケット・Runbook は管理ルート（既定：`management/`）配下で管理し、プロジェクト固有資産と明確に分離する。
+* **スクリプト分離**：記録作成・frontmatter 更新・一覧再生成・変更ファイル一覧更新・アーカイブ・エージェント同期・診断などの機械処理は、手作業で行わず `management/scripts/` 配下の共有スクリプトを使用する。
+* **ブランチ更新責務**：議事録・ADR・Runbook・チケット起票・全体一覧の再生成は統合ブランチ上で行い、個別チケットの進行・成果物作成・レビュー記録は作業ブランチ上で行う。
+* **AIco 由来領域の保護**：本ファイルのマーカー内（`<!-- AICO:BEGIN -->` 〜 `<!-- AICO:END -->`）、`CLAUDE.md`、`.agents/skills/aico-*`、`tools/aico.*`、`management/01.manual/`・`templates/`・`scripts/` は AIco 由来領域であり、導入先で直接改造しない。プロジェクト固有の規約や上書き方針は本ファイルのマーカー外へ記載する。
+
+## 2. 作業開始時の確認手順
+
+新しいセッションを開始または再開する際は、以下の順で現在状況を実物照合すること。
+
+1. `management/aico-manifest.json` を確認し、`management_root`・`integration_branch`・有効な `tools` を把握する。
+2. `management/index.md`（ダッシュボード）および現在の Git ブランチを確認する。
+3. 進行中の作業や次に取るべきアクションの判定には `aico-ticket-status` スキル（または `uv run management/scripts/ticket_status.py`）を使用する。
+
+※`management/index.md` は統合済み記録の一覧であり、未統合の作業ブランチ上の途中進捗は含まれない。作業中の最新状況は各作業ブランチのチケット記録で確認すること。
+
+## 3. 工程別スキル案内表
+
+場面に応じて、`.agents/skills/` 配下の以下の `aico-*` スキルを使用すること。
+
+| 区分 | スキル名 | 主な用途 |
+| :--- | :--- | :--- |
+| 横断・運用 | `aico-markdown-write` | 管理記録・文書作成時の Markdown 品質規約を適用する |
+| 横断・運用 | `aico-archive` | 完了済み記録を `archived/` へ移動しリンクと一覧を更新する |
+| 横断・運用 | `aico-doctor` | 環境・設定・同期・記録規約・リンク切れを総合診断する |
+| 横断・運用 | `aico-feedback` | AIco の問題点や改善要望を構造化 Markdown で出力する |
+| 相談・ADR・Runbook | `aico-discuss` | 相談・構想の壁打ちを行い議事録へ構造化して記録する |
+| 相談・ADR・Runbook | `aico-create-adr` | 複数作業に影響する設計判断を ADR として記録する |
+| 相談・ADR・Runbook | `aico-create-runbook` | 繰り返し実施する定常作業を手順書として作成・改訂する |
+| 相談・ADR・Runbook | `aico-runbook-run` | Runbook 手順書に従って実施し、実施記録と添付物を残す |
+| チケット | `aico-create-ticket` | 統合ブランチ上でチケットを起票し概要・AC・DoR を整える |
+| チケット | `aico-ticket-start` | DoR を確定し作業ブランチを作成・切替して対応を開始する |
+| チケット | `aico-ticket-plan` | 現状調査と仕様合意を行い `plan.md` を策定する |
+| チケット | `aico-ticket-design` | 合意仕様にもとづき設計書・仕様書を作成・更新する |
+| チケット | `aico-ticket-implement` | 計画と設計に沿って実装・テスト検証を進める |
+| チケット | `aico-ticket-close` | 変更ファイル更新・DoD 確認・完了確定および統合後の一覧再生成を行う |
+| チケット | `aico-ticket-pr` | 作業ブランチの差分と記録から PR/MR 用の Title・Description を出力する |
+| チケット | `aico-ticket-cancel` | 人間承認を得てチケットを中止し統合側へ反映する |
+| チケット | `aico-ticket-status` | 実物照合で現在地を把握し次に実行すべきスキルを提案する |
+| レビュー | `aico-review` | 独立コンテキストで成果物をレビューし指摘を記録する |
+| レビュー | `aico-review-triage` | 未選別の指摘を人間へ提示し採否判断を記録する |
+| レビュー | `aico-review-fix` | 人間が採用した指摘を修正し経緯を記録する |
+| レビュー | `aico-review-recheck` | 独立コンテキストで修正内容を実物照合し解消確認・差し戻しを行う |
+
+## 4. 詳細マニュアルへの参照
+
+詳細な導入手順・日常運用・規約は以下のマニュアルを参照すること。
+
+* [AIco マニュアル目次](management/01.manual/index.md)
+* [Getting Started（初期設定と最初の運用）](management/01.manual/getting-started.md)
+* [ワークフロー・スクリプト参照](management/01.manual/workflow-reference.md)
+<!-- AICO:END -->
