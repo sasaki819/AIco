@@ -62,5 +62,6 @@ AIco は、AI が作業を主導しつつ人間が重要な判断を行う協業
 ## AIco 本体開発の補足規約
 
 * **ブランチ運用**：AIco 本体リポジトリでは `main`（統合ブランチ）と作業ブランチ（`feature/<チケットID>`）のみで運用する。
+* **マージ後の後処理**：作業ブランチを `main` へマージした際は、マージ済みのローカル作業ブランチを都度削除（`git branch -d`）し、統合後の一覧再生成・コミット後にリモート（`origin/main`）へ `push` する。
 * **配布原本と運営領域の分離**：開発時の変更対象は `template/`・`installer/`・`tests/`・`docs/` とし、ルート直下の運営領域（`management/`・`.agents/` 等）を新版仕様へ手作業で改造しない。リリース前に `tools/aico.sh update --source .` で自己適用する。
 * **自動テスト**：変更時は `python3 -m unittest discover -s tests -v` を実行して全件通過を確認する。
