@@ -15,7 +15,7 @@ from .naming import parse_semver
 
 ALLOWED_TOOLS = ("claude", "codex", "antigravity", "copilot")
 WORKER_LEVELS = ("high", "middle", "low")
-EFFORT_SUPPORTED_TOOLS = ("claude", "codex", "antigravity", "copilot")
+EFFORT_SUPPORTED_TOOLS = ("claude", "codex", "copilot")
 REQUIRED_MANIFEST_KEYS = (
     "schema_version",
     "aico_version",

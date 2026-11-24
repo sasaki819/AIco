@@ -652,7 +652,7 @@ class TestDailyScriptsEndToEnd(unittest.TestCase):
             (repo / "GEMINI.md").write_text("# forbidden\n", encoding="utf-8")
             (repo / "management" / "archived").mkdir()
             (repo / ".agents" / "skills" / "my-custom" / "bad.py").write_text("print(1)\n", encoding="utf-8")
-            (repo / "management" / "01.manual" / "getting-started.md").write_text(
+            (repo / "management" / "01.manual" / "01.getting-started.md").write_text(
                 "# Title\n\n[broken](./does-not-exist.md)\n", encoding="utf-8", newline="\n"
             )
             p_bad_doc = run_script(repo, "doctor.py", "--json")

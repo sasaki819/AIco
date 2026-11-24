@@ -89,10 +89,15 @@ class TestMarkers(unittest.TestCase):
         blocks, errs = markers.validate_markers(text)
         self.assertEqual(errs, [])
         self.assertEqual([b.label for b in blocks], ["summary", "active-tickets"])
-        updated = markers.replace_auto_block(text, "summary", "new1")
+        table = "| Col1 | Col2 |\n| :--- | :--- |\n| a | b |"
+        updated = markers.replace_auto_block(text, "summary", table)
         updated = markers.replace_auto_block(updated, "active-tickets", "new2")
-        self.assertIn("new1", updated)
-        self.assertIn("new2", updated)
+        self.assertIn("<!-- AICO:AUTO:BEGIN:summary -->\n\n| Col1 | Col2 |", updated)
+        self.assertIn("| a | b |\n\n<!-- AICO:AUTO:END:summary -->", updated)
+        self.assertIn("<!-- AICO:AUTO:BEGIN:active-tickets -->\n\nnew2\n\n<!-- AICO:AUTO:END:active-tickets -->", updated)
+        # Idempotent on repeated replacement
+        updated_again = markers.replace_auto_block(updated, "summary", table)
+        self.assertEqual(updated_again, updated)
 
     def test_detects_duplicate_nested_unclosed_reversed(self) -> None:
         dup = (
@@ -280,6 +285,61 @@ class TestAgentsSyncRenderers(unittest.TestCase):
         parsed2 = tomllib.loads(toml2)
         self.assertEqual(parsed2["model"], "gpt-5.3-codex")
         self.assertEqual(parsed2["model_reasoning_effort"], "high")
+
+    def test_worker_adapters_antigravity_and_copilot_spec(self) -> None:
+        from _lib.agents_sync import _render_markdown_worker
+        from _lib.manifest import EFFORT_SUPPORTED_TOOLS, validate_manifest
+
+        self.assertEqual(EFFORT_SUPPORTED_TOOLS, ("claude", "codex", "copilot"))
+        self.assertNotIn("antigravity", EFFORT_SUPPORTED_TOOLS)
+
+        # Antigravity omits effort even if provided
+        ag_md = _render_markdown_worker("worker-high", "desc", "# body\n", "pro", "high", effort_key=None)
+        self.assertIn("model: pro", ag_md)
+        self.assertNotIn("effort:", ag_md)
+
+        # Copilot uses reasoning-effort instead of effort
+        cp_md = _render_markdown_worker(
+            "worker-middle", "desc", "# body\n", "claude-opus-5.5", "medium", effort_key="reasoning-effort"
+        )
+        self.assertIn("model: claude-opus-5.5", cp_md)
+        self.assertIn("reasoning-effort: medium", cp_md)
+        self.assertNotIn("\neffort:", cp_md)
+
+        # validate_manifest produces 0 warnings when antigravity effort == "" and others set
+        manifest = {
+            "schema_version": 1,
+            "aico_version": "0.1.0",
+            "source_repository": "",
+            "management_root": "management",
+            "integration_branch": "main",
+            "tools": ["claude", "codex", "antigravity", "copilot"],
+            "worker_models": {
+                "claude": {
+                    "high": {"model": "opus", "effort": "high"},
+                    "middle": {"model": "sonnet", "effort": "high"},
+                    "low": {"model": "haiku", "effort": "high"},
+                },
+                "codex": {
+                    "high": {"model": "gpt-6.2-astra", "effort": "high"},
+                    "middle": {"model": "gpt-6.2-sol", "effort": "medium"},
+                    "low": {"model": "gpt-6.2-sol", "effort": "low"},
+                },
+                "antigravity": {
+                    "high": {"model": "pro", "effort": ""},
+                    "middle": {"model": "flash", "effort": ""},
+                    "low": {"model": "flash_lite", "effort": ""},
+                },
+                "copilot": {
+                    "high": {"model": "gemini-4-neon", "effort": "high"},
+                    "middle": {"model": "claude-opus-5.5", "effort": "medium"},
+                    "low": {"model": "gpt-6.2-sol", "effort": "low"},
+                },
+            },
+        }
+        errs, warns = validate_manifest(manifest)
+        self.assertEqual(errs, [])
+        self.assertEqual(warns, [])
 
 
 if __name__ == "__main__":

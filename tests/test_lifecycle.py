@@ -425,6 +425,106 @@ def verify(ctx):
             m_after = json.loads((repo / "management" / "aico-manifest.json").read_text(encoding="utf-8"))
             self.assertEqual(m_after["aico_version"], "0.1.1")
 
+    def test_install_with_init_flag_and_upgrade_removes_obsolete_workflow_reference(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            src = make_source_copy(base / "src_cur", version="0.1.0", strip_git=True)
+
+            # 1. --init --dry-run --json leaves tree untouched and flags init_planned
+            repo_dry = init_git_repo(base / "proj_dry", default_branch="main")
+            snap = snapshot_tree(repo_dry)
+            p_dry = run_cmd(
+                [sys.executable, str(src / "installer" / "install.py"), "--init", "--dry-run", "--json"],
+                repo_dry,
+            )
+            self.assertEqual(p_dry.returncode, 0, p_dry.stdout + p_dry.stderr)
+            d_dry = parse_json_output(p_dry)
+            self.assertTrue(d_dry["data"].get("init_planned"))
+            self.assertEqual(snapshot_tree(repo_dry), snap)
+
+            # 2. --init --json runs install + init and returns single merged JSON
+            repo_json = init_git_repo(base / "proj_json", default_branch="main")
+            p_json = run_cmd(
+                [sys.executable, str(src / "installer" / "install.py"), "--init", "--json"],
+                repo_json,
+            )
+            self.assertEqual(p_json.returncode, 0, p_json.stdout + p_json.stderr)
+            d_json = parse_json_output(p_json)
+            self.assertIn("init", d_json["data"])
+            self.assertTrue((repo_json / "CLAUDE.md").is_file())
+            self.assertTrue((repo_json / ".github" / "agents" / "worker-high.agent.md").is_file())
+
+            # 3. --init text mode prints placement + next-steps tutorial guidance
+            repo_txt = init_git_repo(base / "proj_txt", default_branch="main")
+            p_txt = run_cmd(
+                [sys.executable, str(src / "installer" / "install.py"), "--init"],
+                repo_txt,
+                stdin_text="",
+            )
+            self.assertEqual(p_txt.returncode, 0, p_txt.stdout + p_txt.stderr)
+            self.assertIn("02.tutorial.md", p_txt.stdout)
+            self.assertIn("05.worker-models.md", p_txt.stdout)
+            self.assertIn("次のステップ:", p_txt.stdout)
+            self.assertNotIn("WARN:", p_txt.stderr)
+
+            # 4. Normal install (no --init) prints 01.getting-started.md guidance
+            repo_plain = init_git_repo(base / "proj_plain", default_branch="main")
+            p_plain = run_cmd(
+                [sys.executable, str(src / "installer" / "install.py")],
+                repo_plain,
+            )
+            self.assertEqual(p_plain.returncode, 0, p_plain.stdout + p_plain.stderr)
+            self.assertIn("01.getting-started.md", p_plain.stdout)
+
+            # 5. Upgrade removes obsolete 01.manual/workflow-reference.md cleanly and passes doctor
+            repo_upg = setup_installed_repo(base / "proj_upg", integration_branch="main")
+            obsolete_ref = repo_upg / "management" / "01.manual" / "workflow-reference.md"
+            obsolete_ref.write_text("# Old Workflow Reference\n", encoding="utf-8", newline="\n")
+            git(repo_upg, "add", ".")
+            git(repo_upg, "commit", "-m", "simulate v0.1.0 with workflow-reference.md")
+
+            src_v2 = make_source_copy(base / "src_v2", version="0.2.0", schema_version=1, strip_git=True)
+            p_upg = run_script(repo_upg, "update.py", "--source", str(src_v2), "--json")
+            self.assertEqual(p_upg.returncode, 0, p_upg.stdout + p_upg.stderr)
+            self.assertFalse(obsolete_ref.exists())
+            for expected in ("index.md", "01.getting-started.md", "02.tutorial.md", "03.cheatsheet.md", "04.user-guide.md", "05.worker-models.md"):
+                self.assertTrue((repo_upg / "management" / "01.manual" / expected).is_file())
+
+            # Configure recommended 4-tool settings and verify sync_agents + doctor == 0 warn / 0 error
+            m_path = repo_upg / "management" / "aico-manifest.json"
+            m_data = json.loads(m_path.read_text(encoding="utf-8"))
+            m_data["worker_models"] = {
+                "claude": {
+                    "high": {"model": "opus", "effort": "high"},
+                    "middle": {"model": "sonnet", "effort": "high"},
+                    "low": {"model": "haiku", "effort": "high"},
+                },
+                "codex": {
+                    "high": {"model": "gpt-6.2-astra", "effort": "high"},
+                    "middle": {"model": "gpt-6.2-sol", "effort": "medium"},
+                    "low": {"model": "gpt-6.2-sol", "effort": "low"},
+                },
+                "antigravity": {
+                    "high": {"model": "pro", "effort": ""},
+                    "middle": {"model": "flash", "effort": ""},
+                    "low": {"model": "flash_lite", "effort": ""},
+                },
+                "copilot": {
+                    "high": {"model": "gemini-4-neon", "effort": "high"},
+                    "middle": {"model": "claude-opus-5.5", "effort": "medium"},
+                    "low": {"model": "gpt-6.2-sol", "effort": "low"},
+                },
+            }
+            m_path.write_text(json.dumps(m_data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
+            p_sync = run_script(repo_upg, "sync_agents.py", "--json")
+            self.assertEqual(p_sync.returncode, 0, p_sync.stdout + p_sync.stderr)
+            self.assertNotIn("effort:", (repo_upg / ".agents" / "agents" / "worker-high.md").read_text(encoding="utf-8"))
+            cp_mid = (repo_upg / ".github" / "agents" / "worker-middle.agent.md").read_text(encoding="utf-8")
+            self.assertIn("model: claude-opus-5.5", cp_mid)
+            self.assertIn("reasoning-effort: medium", cp_mid)
+            p_doc = run_script(repo_upg, "doctor.py", "--strict", "--json")
+            self.assertEqual(p_doc.returncode, 0, p_doc.stdout + p_doc.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

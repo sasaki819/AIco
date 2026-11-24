@@ -147,7 +147,10 @@ def _replace_block(
         before += "\n"
     after = "".join(lines[target.end_line :])
     inner = new_inner.replace("\r\n", "\n").replace("\r", "\n")
-    if inner and not inner.endswith("\n"):
+    if kind == "auto":
+        stripped = inner.strip("\n")
+        inner = f"\n{stripped}\n\n" if stripped else "\n"
+    elif inner and not inner.endswith("\n"):
         inner += "\n"
     return before + inner + after
 

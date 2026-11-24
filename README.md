@@ -3,8 +3,31 @@
 ## 概要
 
 AIcoは、開発プロジェクトで人とAIが継続的に協業するための方針・仕様・テンプレートを提供する基盤である。  
-対象読者は、AIcoを利用する開発者、導入検討者、およびAIcoの仕様を設計する開発者とする。  
+対象読者は、AIcoを初めて導入・利用する開発者、導入検討者、およびAIcoの仕様を設計する開発者とする。  
 導入先が変わっても共通の手順で作業し、運用で得た知見を継続的に取り込める状態を目指す。
+
+## クイックスタート（まずは使ってみる）
+
+AIcoは既存プロジェクトのソースコードや既存の `AGENTS.md` 本文を上書きせず、専用ディレクトリと管理マーカー内へ安全に配置される。
+
+* **対応AIツール**：Claude Code、Codex、Antigravity、GitHub Copilot（VS Code）
+* **前提環境**：Git、Python 3.11 以上（`uv` 推奨）
+
+導入先プロジェクトの **Gitリポジトリルート**（作業ツリーがクリーンな状態）で、以下の2ステップを実行する。
+
+```bash
+# 1. AIco の資材を配置する（特定バージョン指定時は latest を v0.1.0 等のリリースタグへ置換）
+uv run --refresh https://raw.githubusercontent.com/sasaki819/AIco/latest/installer/install.py
+
+# 2. 対話ウィザードで初期設定・ツール同期・診断を行う（Windows は tools\aico.bat init）
+tools/aico.sh init
+```
+
+導入が終わったら、まずは以下のユーザーガイドを上から順に読むことで最初の1チケットを完走できる（導入先プロジェクトの `management/01.manual/` にも同一内容が配置される）。
+
+1. [Getting Started（導入と初期設定）](docs/04.user-guide/01.getting-started.md)：前提・導入・`AGENTS.md` 記入例・`worker_models` 設定・アップデート
+2. [チュートリアル（最初の1チケットを回してみよう）](docs/04.user-guide/02.tutorial.md)：AIへの声かけ例つきハンズオン
+3. [チートシート（普段使いの早見表）](docs/04.user-guide/03.cheatsheet.md)：まず覚える基本7スキルと逆引き一覧
 
 ## 目的
 
@@ -25,19 +48,30 @@ AIcoの設計は以下の4つの基本方針に基づく。
 
 ## 文書と資材の3層構造
 
-AIcoの資材は、役割と抽象度に応じて以下の3層に分けて管理する。
+AIcoの設計と配布資材は、役割と抽象度に応じて以下の3層に分けて管理する。
 
 | 層 | 配置先 | 定める内容 | 書かない内容 |
 | :--- | :--- | :--- | :--- |
 | **ポリシー** | `docs/02.policy/` | 仕様をすべて読まなくても思想と全体像を理解できる要約解説、および設計時の判断軸 | 具体的な書式、詳細な引数仕様、モデル名 |
 | **仕様** | `docs/03.spec/` | 配置、命名、frontmatter、工程、入出力の約束 | 個別プロジェクト固有の設定値 |
-| **テンプレート** | `template/`・`installer/` | 仕様に従い導入先へ展開するファイル一式 | AIco本体の運営用記録 |
+| **テンプレート** | `template/`・`installer/` | 仕様に従い導入先へ展開するファイル一式（`management/01.manual/` は `docs/04.user-guide/` の同期コピー） | AIco本体の運営用記録 |
 
 仕様とテンプレートを変更する際は、対応するポリシーとの整合性を必ず確認すること。  
-なお、実践上の小技や個人の設定例をまとめた補足ガイドは、上記3層の外（任意の参考資料）として扱う。
+なお、利用者向けガイド（`docs/04.user-guide/`）は導入先へ配布されるマニュアルの原本として管理し、実践上の小技をまとめた補足ガイド（`docs/01.tips/`）は3層の外（任意の参考資料）として扱う。
 
 ## ドキュメントを読む
 
-* [AIエージェントTips](docs/01.tips/ai-agent-tips.md)：実践上の小技や設定例をまとめた補足ガイド（任意の参考資料）
+### 初めて使う・導入する方へ
+
+* [ユーザーガイド目次](docs/04.user-guide/index.md)：導入から最初の1チケット・日常運用・FAQ・おすすめ `worker_models` 設定例まで（導入先 `management/01.manual/` の原本）
+* [Getting Started（導入と初期設定）](docs/04.user-guide/01.getting-started.md)
+* [チュートリアル](docs/04.user-guide/02.tutorial.md)
+* [チートシート](docs/04.user-guide/03.cheatsheet.md)
+* [使いこなしガイド・FAQ](docs/04.user-guide/04.user-guide.md)
+* [おすすめ `worker_models` 設定例](docs/04.user-guide/05.worker-models.md)
+
+### 思想・仕様・参考資料を読む方へ
+
 * [ポリシー一覧](docs/02.policy/index.md)：AIcoの思想・全体像・判断軸
 * [仕様書一覧](docs/03.spec/index.md)：配置・記録・工程・スキル・スクリプトの具体仕様
+* [AIエージェントTips](docs/01.tips/ai-agent-tips.md)：実践上の小技や設定例をまとめた補足ガイド（任意の参考資料）

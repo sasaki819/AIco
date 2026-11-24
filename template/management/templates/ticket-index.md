@@ -38,7 +38,9 @@ adrs: {{adrs}}
 ## 変更ファイル
 
 <!-- AICO:AUTO:BEGIN:changed-files -->
+
 変更されたプロジェクト資産はない。
+
 <!-- AICO:AUTO:END:changed-files -->
 
 ## DoD（完了の定義）

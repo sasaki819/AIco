@@ -247,7 +247,8 @@ def _perform_install(
         claude_text = claude_dst.read_text(encoding="utf-8").replace("\r\n", "\n")
         if claude_text != CLAUDE_MD_EXPECTED:
             raise InstallError(
-                "既存の CLAUDE.md に '@AGENTS.md' 以外の独自記述が含まれています。独自内容を AGENTS.md（マーカー外）へ退避してから再実行してください"
+                "既存の CLAUDE.md に '@AGENTS.md' 以外の独自記述が含まれています。"
+                "独自内容を AGENTS.md（マーカー外）へ移し、CLAUDE.md を退避・削除してから再実行してください。"
             )
 
     changed: list[str] = []
@@ -328,6 +329,12 @@ def main() -> int:
     parser.add_argument("--management-root", default="management", help="管理ルート名（既定: management）")
     parser.add_argument("--dry-run", action="store_true", help="実ファイルを変更せず配置予定のみ表示")
     parser.add_argument("--allow-dirty", action="store_true", help="未コミット変更がある作業ツリーでの実行を許可")
+    parser.add_argument(
+        "--init",
+        dest="run_init",
+        action="store_true",
+        help="配置完了後に続けて初期設定（init.py）を起動する（慣れた利用者向けの任意ショートカット）",
+    )
     parser.add_argument("--json", dest="as_json", action="store_true", help="JSON 形式で出力")
     args = parser.parse_args()
 
@@ -348,7 +355,8 @@ def main() -> int:
                 raise InstallError(f"git status の取得に失敗しました: {st.stderr.strip()}")
             if st.stdout.strip():
                 raise InstallError(
-                    "作業ツリーに未コミット変更があるため停止します。コミット・退避するか --allow-dirty を指定してください"
+                    "作業ツリーに未コミット変更があるため停止します。"
+                    "先に git commit または git stash で整理してから再実行してください（確認用の一時実行は --allow-dirty も指定可）。"
                 )
 
         mgmt_root = _validate_management_root(args.management_root)
@@ -403,17 +411,85 @@ def main() -> int:
                 )
 
         if args.dry_run:
+            if args.run_init:
+                meta["init_planned"] = True
+            suffix = "（配置後に init.py を続けて実行予定）" if args.run_init else ""
             msg = (
                 f"[DRY-RUN] AIco v{meta['aico_version']} 配置予定: {len(changed)} ファイル "
-                f"(management_root={mgmt_root}, AGENTS.md={meta['agents_md_mode']})"
+                f"(management_root={mgmt_root}, AGENTS.md={meta['agents_md_mode']}){suffix}"
             )
-        else:
-            msg = (
+            return _emit(
+                as_json=args.as_json,
+                status="ok",
+                text=msg,
+                changed_files=changed,
+                data=meta,
+                exit_code=EXIT_OK,
+            )
+
+        if args.run_init:
+            init_script = cwd / mgmt_root / "scripts" / "init.py"
+            if not init_script.is_file():
+                raise InstallError(f"初期設定スクリプトが見つかりません: {init_script}")
+            if args.as_json:
+                init_proc = subprocess.run(
+                    [sys.executable, str(init_script), "--root", mgmt_root, "--json"],
+                    cwd=str(cwd),
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    check=False,
+                )
+                init_payload: dict[str, Any] | None = None
+                try:
+                    init_payload = json.loads(init_proc.stdout)
+                except json.JSONDecodeError:
+                    init_payload = None
+                if init_payload is None:
+                    raise InstallError(
+                        f"init.py の実行結果の解析に失敗しました (exit={init_proc.returncode}): "
+                        f"{(init_proc.stdout + init_proc.stderr).strip()}"
+                    )
+                for rel in init_payload.get("changed_files", []):
+                    if rel not in changed:
+                        changed.append(rel)
+                init_warnings = list(init_payload.get("warnings", []))
+                init_errors = list(init_payload.get("errors", []))
+                meta["init"] = init_payload
+                status_out = "error" if init_proc.returncode != 0 or init_errors else (
+                    "warn" if init_warnings else "ok"
+                )
+                return _emit(
+                    as_json=True,
+                    status=status_out,
+                    text="",
+                    changed_files=changed,
+                    warnings=init_warnings,
+                    errors=init_errors,
+                    data=meta,
+                    exit_code=init_proc.returncode,
+                )
+
+            print(
                 f"AIco v{meta['aico_version']} の資材配置が完了しました（{len(changed)} ファイル）。\n"
-                f"次のステップ: 初期設定を実行してください。\n"
-                f"  Linux/macOS: tools/aico.sh init\n"
-                f"  Windows    : tools\\aico.bat init"
+                f"続けて初期設定（init.py）を起動します...\n",
+                flush=True,
             )
+            init_proc = subprocess.run(
+                [sys.executable, str(init_script), "--root", mgmt_root],
+                cwd=str(cwd),
+                check=False,
+            )
+            return init_proc.returncode
+
+        msg = (
+            f"AIco v{meta['aico_version']} の資材配置が完了しました（{len(changed)} ファイル）。\n"
+            f"次のステップ: 初期設定を実行してください。\n"
+            f"  Linux/macOS: tools/aico.sh init\n"
+            f"  Windows    : tools\\aico.bat init\n"
+            f"詳しい導入手順: {mgmt_root}/01.manual/01.getting-started.md"
+        )
         return _emit(
             as_json=args.as_json,
             status="ok",

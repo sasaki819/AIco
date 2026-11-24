@@ -77,19 +77,25 @@ def _run_interactive_wizard(ctx: AicoContext) -> dict[str, Any]:
     else:
         default_integ = detect_default_integration_branch(ctx.repo_root) or cur_integ or "main"
 
+    mgmt_rel = str(manifest.get("management_root", "management"))
     print("=== AIco 初期設定ウィザード ===")
-    integ = _prompt("統合ブランチ名 (integration_branch)", default_integ)
+    print("（そのまま Enter を押すと [ ] 内の既定値が適用されます）")
+    integ = _prompt("統合ブランチ名 (integration_branch、例: main / develop)", default_integ)
     manifest["integration_branch"] = integ
 
     cur_tools = manifest.get("tools", list(ALLOWED_TOOLS))
     default_tools = ",".join(cur_tools) if isinstance(cur_tools, list) and cur_tools else ",".join(ALLOWED_TOOLS)
-    tools_raw = _prompt(f"有効化するツール ({','.join(ALLOWED_TOOLS)})", default_tools)
+    tools_raw = _prompt(f"有効化するツール (カンマ区切り: {','.join(ALLOWED_TOOLS)})", default_tools)
     manifest["tools"] = _parse_tools_csv(tools_raw)
 
     cur_src = str(manifest.get("source_repository", ""))
     src = _prompt("アップデート参照先 Git URL (オフライン専用なら '-' で空設定)", cur_src)
     manifest["source_repository"] = "" if src == "-" else src
 
+    print(
+        f"※worker_models は空欄のままでも各ツールの既定モデルで動作します。"
+        f"おすすめ設定例は {mgmt_rel}/01.manual/05.worker-models.md を参照してください。"
+    )
     cfg_wm = _prompt("各ツールの worker_models を今すぐ設定しますか? (y/N)", "N").lower()
     if cfg_wm in ("y", "yes"):
         wm = manifest.setdefault("worker_models", {})
@@ -262,12 +268,26 @@ def main() -> int:
             f"doctor 診断結果: OK={doctor_summary.get('ok', 0)}, "
             f"WARN={doctor_summary.get('warn', 0)}, ERROR={doctor_summary.get('error', 0)}"
         )
+    mgmt_rel = str(new_manifest.get("management_root", "management"))
     if warnings:
-        lines.append("警告（必要に応じて worker_models 等を設定してください）:")
+        lines.append(
+            f"警告（エラーではないため各ツールの既定モデルでそのまま使い始められます。"
+            f"おすすめ設定例: {mgmt_rel}/01.manual/05.worker-models.md）:"
+        )
         for w in warnings[:10]:
             lines.append(f"  - {w}")
         if len(warnings) > 10:
             lines.append(f"  ... 他 {len(warnings) - 10} 件")
+    if not args.dry_run:
+        lines.extend(
+            [
+                "",
+                "次のステップ:",
+                "  1. 必要に応じて AGENTS.md のマーカー外へプロジェクト固有ルールを追記",
+                "  2. 導入・設定したファイルを初回コミット",
+                f"  3. {mgmt_rel}/01.manual/02.tutorial.md を見ながら最初の1チケットを試す",
+            ]
+        )
 
     return emit_result(
         as_json=args.as_json,
@@ -284,6 +304,7 @@ def main() -> int:
             "doctor": doctor_summary,
         },
         exit_code=EXIT_OK,
+        emit_warnings_in_text=False,
     )
 
 

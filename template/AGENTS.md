@@ -1,4 +1,5 @@
 <!-- AICO:BEGIN -->
+
 # AIco 協業ガイドライン
 
 ## 1. AIco の基本原則
@@ -50,11 +51,15 @@ AIco は、AI が作業を主導しつつ人間が重要な判断を行う協業
 | レビュー | `aico-review-fix` | 人間が採用した指摘を修正し経緯を記録する |
 | レビュー | `aico-review-recheck` | 独立コンテキストで修正内容を実物照合し解消確認・差し戻しを行う |
 
-## 4. 詳細マニュアルへの参照
+## 4. ユーザーガイド・マニュアルへの参照
 
-詳細な導入手順・日常運用・規約は以下のマニュアルを参照すること。
+導入手順・最初の1チケットの進め方・日常運用の早見表・FAQ は以下のガイドを参照すること（初見ユーザーから使い方を尋ねられた場合もこれらを案内する）。
 
-* [AIco マニュアル目次](management/01.manual/index.md)
-* [Getting Started（初期設定と最初の運用）](management/01.manual/getting-started.md)
-* [ワークフロー・スクリプト参照](management/01.manual/workflow-reference.md)
+* [AIco ユーザーガイド目次](management/01.manual/index.md)
+* [Getting Started（導入と初期設定）](management/01.manual/01.getting-started.md)
+* [チュートリアル（最初の1チケットを回してみよう）](management/01.manual/02.tutorial.md)
+* [チートシート（普段使いの早見表）](management/01.manual/03.cheatsheet.md)
+* [使いこなしガイド・FAQ](management/01.manual/04.user-guide.md)
+* [おすすめ `worker_models` 設定例](management/01.manual/05.worker-models.md)
+
 <!-- AICO:END -->
