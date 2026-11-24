@@ -2,7 +2,7 @@
 
 ## 概要
 
-AIco の資材配置（`install.py`）完了後に、プロジェクト固有設定を行い運用を開始するまでの手順を示す。
+AIco の資材配置（`install.py`）完了後に、プロジェクト固有設定を行い運用を開始するまでの手順を示す。  
 本マニュアルでは以下の流れを扱う。
 
 * 初期設定とツール同期（`init`）
@@ -18,7 +18,7 @@ AIco の資材配置（`install.py`）完了後に、プロジェクト固有設
 tools/aico.sh init
 ```
 
-Windows 環境では `tools/aico.bat init` を使用する。
+Windows 環境では `tools/aico.bat init` を使用する。  
 非対話で設定する場合はオプションを指定できる。
 
 ```bash
@@ -46,7 +46,7 @@ AIco 由来領域（マーカー内・`aico-*` スキル・`management/scripts/`
 tools/aico.sh doctor
 ```
 
-利用する AI ツールで `AGENTS.md` と `aico-*` スキルが読み込まれることを確認してから初回コミットを行う。
+利用する AI ツールで `AGENTS.md` と `aico-*` スキルが読み込まれることを確認してから初回コミットを行う。  
 日常運用では、相談から始める場合は `aico-discuss`、タスクを起票する場合は `aico-create-ticket`、現在地の確認には `aico-ticket-status` を使用する。
 
 ## 4. アップデート

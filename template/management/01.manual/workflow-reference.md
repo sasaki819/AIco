@@ -28,7 +28,7 @@ AIco における記録種別・3軸状態・ブランチ更新責務・レビ�
 * **`phase`**：`drafting` → `planning` → `design` → `implementation` → `closing`（不要な `design` は合意のうえスキップ可）
 * **`phase_status`**：`working` → `reviewing` → `triaging` → `fixing` → `re-reviewing` → `done`
 
-正常クローズ時は `status: done`・`phase: closing`・`phase_status: done` へ確定する。
+正常クローズ時は `status: done`・`phase: closing`・`phase_status: done` へ確定する。  
 中止時は `status: cancelled` へ更新し、`phase`・`phase_status` は中止時点の値を維持する。
 
 ## 3. ブランチ別の更新責務
@@ -38,7 +38,7 @@ AIco における記録種別・3軸状態・ブランチ更新責務・レビ�
 
 ## 4. 独立レビューと人間選別
 
-レビュー（`aico-review`）と再確認（`aico-review-recheck`）は、作成担当セッションとは独立したコンテキスト（`worker-middle` または `worker-high`）へ必ず委譲する。
+レビュー（`aico-review`）と再確認（`aico-review-recheck`）は、作成担当セッションとは独立したコンテキスト（`worker-middle` または `worker-high`）へ必ず委譲する。  
 指摘の採否選別（`aico-review-triage`）は必ず人間が決定し、AI が独断で採否を確定してはならない。
 
 ## 5. 共有スクリプト一覧
