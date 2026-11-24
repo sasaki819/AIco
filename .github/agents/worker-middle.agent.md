@@ -1,6 +1,8 @@
 ---
 name: worker-middle
 description: 意図を汲む実装・一般的な独立レビュー・定型外の修正を担当するバランス型ワーカー
+model: gemini-4-hydrogen
+effort: high
 ---
 
 # worker-middle
