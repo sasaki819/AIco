@@ -4,6 +4,7 @@
   "source_repository": "https://github.com/sasaki819/AIco.git",
   "management_root": "management",
   "integration_branch": "develop",
+  "pr_template": "",
   "tools": [
     "claude",
     "codex",

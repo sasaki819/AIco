@@ -378,6 +378,16 @@ class TestDailyScriptsEndToEnd(unittest.TestCase):
                 run_script(repo, "update_frontmatter.py", "--file", f1["path"], "--set", "status=done").returncode,
                 0,
             )
+            # Record cancellation reason for f2 so doctor.py quality gate passes
+            f2_full = repo / f2["path"]
+            f2_full.write_text(
+                f2_full.read_text(encoding="utf-8").replace(
+                    "<!-- 採用（in-progress）または見送り（cancelled）の判断と理由を記録する -->",
+                    "見送り：本チケットのスコープ外のため別チケットで扱う。",
+                ),
+                encoding="utf-8",
+                newline="\n",
+            )
             self.assertEqual(
                 run_script(repo, "update_frontmatter.py", "--file", f2["path"], "--set", "status=cancelled").returncode,
                 0,
@@ -391,12 +401,24 @@ class TestDailyScriptsEndToEnd(unittest.TestCase):
             git(repo, "add", "src/app.py")
             git(repo, "commit", "-m", "feat: add app.py")
 
-            # Dirty tree triggers WARN
+            # Default update_changed_files.py includes uncommitted/untracked files with status ok
             (repo / "temp_dirty.txt").write_text("dirty\n", encoding="utf-8")
-            p_cf1 = run_script(repo, "update_changed_files.py", "--json")
+            p_cf_def = run_script(repo, "update_changed_files.py", "--json")
+            self.assertEqual(p_cf_def.returncode, 0, p_cf_def.stdout + p_cf_def.stderr)
+            cf_def = parse_json_output(p_cf_def)
+            self.assertEqual(cf_def["status"], "ok")
+            self.assertTrue(cf_def["data"]["includes_uncommitted"])
+            self.assertEqual(
+                cf_def["data"]["entries"],
+                [{"status": "A", "path": "src/app.py"}, {"status": "A", "path": "temp_dirty.txt"}],
+            )
+
+            # --committed-only triggers WARN on dirty tree and excludes untracked files
+            p_cf1 = run_script(repo, "update_changed_files.py", "--committed-only", "--json")
             self.assertEqual(p_cf1.returncode, 0, p_cf1.stdout + p_cf1.stderr)
             cf1 = parse_json_output(p_cf1)
             self.assertEqual(cf1["status"], "warn")
+            self.assertFalse(cf1["data"]["includes_uncommitted"])
             self.assertEqual(cf1["data"]["entries"], [{"status": "A", "path": "src/app.py"}])
             (repo / "temp_dirty.txt").unlink()
 
@@ -404,6 +426,14 @@ class TestDailyScriptsEndToEnd(unittest.TestCase):
             p_cf2 = run_script(repo, "update_changed_files.py", "--json")
             self.assertEqual(p_cf2.returncode, 0)
             self.assertEqual(parse_json_output(p_cf2)["changed_files"], [])
+
+            # Check all ACs before closing so doctor.py quality gate passes
+            child_idx_full = repo / child_t["path"]
+            child_idx_full.write_text(
+                child_idx_full.read_text(encoding="utf-8").replace("* [ ] ", "* [x] "),
+                encoding="utf-8",
+                newline="\n",
+            )
 
             # Now ticket can be closed
             p_done_ok = run_script(
@@ -694,6 +724,207 @@ class TestDailyScriptsEndToEnd(unittest.TestCase):
             self.assertEqual(p_fb.returncode, 0, p_fb.stdout + p_fb.stderr)
             d_fb = parse_json_output(p_fb)
             self.assertTrue(any("uv コマンドが見つかりません" in w for w in d_fb["warnings"]))
+
+
+    def test_human_review_status_and_doctor_quality_gates(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            repo = setup_installed_repo(Path(td) / "gateproj", integration_branch="main")
+
+            # Create ticket and start on feature branch
+            p_t = run_script(repo, "create_ticket.py", "--slug", "gate-check", "--title", "品質ゲート確認", "--json")
+            self.assertEqual(p_t.returncode, 0, p_t.stdout + p_t.stderr)
+            t_info = parse_json_output(p_t)
+            tid = t_info["id"]
+            t_path = t_info["path"]
+            t_branch = t_info["data"]["branch"]
+            run_script(repo, "rebuild_indexes.py")
+            git(repo, "add", ".")
+            git(repo, "commit", "-m", "chore: create ticket")
+
+            git(repo, "checkout", "-b", t_branch)
+            self.assertEqual(
+                run_script(
+                    repo,
+                    "update_frontmatter.py",
+                    "--file",
+                    t_path,
+                    "--set",
+                    "status=in-progress",
+                    "--set",
+                    "phase=planning",
+                    "--set",
+                    "phase_status=working",
+                ).returncode,
+                0,
+            )
+
+            # Create human finding directly in in-progress status and move working -> fixing -> re-reviewing -> reviewing
+            p_hf = run_script(
+                repo,
+                "create_review_finding.py",
+                "--target",
+                tid,
+                "--slug",
+                "human-note",
+                "--title",
+                "人間指摘の即採用テスト",
+                "--severity",
+                "major",
+                "--reviewer",
+                "human",
+                "--status",
+                "in-progress",
+                "--json",
+            )
+            self.assertEqual(p_hf.returncode, 0, p_hf.stdout + p_hf.stderr)
+            hf = parse_json_output(p_hf)
+            self.assertEqual(hf["data"]["status"], "in-progress")
+            self.assertIn("status: in-progress", (repo / hf["path"]).read_text(encoding="utf-8"))
+
+            self.assertEqual(
+                run_script(repo, "update_frontmatter.py", "--file", t_path, "--set", "phase_status=fixing").returncode,
+                0,
+            )
+            self.assertEqual(
+                run_script(repo, "update_frontmatter.py", "--file", t_path, "--set", "phase_status=re-reviewing").returncode,
+                0,
+            )
+            self.assertEqual(
+                run_script(repo, "update_frontmatter.py", "--file", t_path, "--set", "phase_status=reviewing").returncode,
+                0,
+            )
+
+            # Create another finding and cancel it WITHOUT reason -> doctor ERROR
+            p_cf = run_script(
+                repo,
+                "create_review_finding.py",
+                "--target",
+                tid,
+                "--next-round",
+                "--slug",
+                "cancel-empty",
+                "--title",
+                "理由空欄見送り",
+                "--severity",
+                "minor",
+                "--reviewer",
+                "worker-middle",
+                "--json",
+            )
+            self.assertEqual(p_cf.returncode, 0, p_cf.stdout + p_cf.stderr)
+            cf = parse_json_output(p_cf)
+            self.assertEqual(
+                run_script(repo, "update_frontmatter.py", "--file", hf["path"], "--set", "status=done").returncode,
+                0,
+            )
+            self.assertEqual(
+                run_script(repo, "update_frontmatter.py", "--file", cf["path"], "--set", "status=cancelled").returncode,
+                0,
+            )
+            run_script(repo, "rebuild_indexes.py", "--scope", "reviews", "--target", tid)
+
+            # Skip directly from planning/reviewing -> closing/working without --force, then close WITH unchecked AC
+            self.assertEqual(
+                run_script(
+                    repo,
+                    "update_frontmatter.py",
+                    "--file",
+                    t_path,
+                    "--set",
+                    "phase=closing",
+                    "--set",
+                    "phase_status=working",
+                ).returncode,
+                0,
+            )
+            self.assertEqual(
+                run_script(
+                    repo,
+                    "update_frontmatter.py",
+                    "--file",
+                    t_path,
+                    "--set",
+                    "status=done",
+                    "--set",
+                    "phase=closing",
+                    "--set",
+                    "phase_status=done",
+                ).returncode,
+                0,
+            )
+
+            # Prepend a 3-backtick fence with an info-string line (```bash) and fake H2 BEFORE
+            # existing unchecked AC items so _extract_h2_section info-string check is exercised.
+            t_full = repo / t_path
+            fake_h2_fence = (
+                "\n```markdown\n"
+                "```bash\n"
+                "## Fake H2 inside fence\n"
+                "```\n"
+            )
+            t_with_fence = t_full.read_text(encoding="utf-8").replace(
+                "## AC（受け入れ条件）\n",
+                "## AC（受け入れ条件）\n" + fake_h2_fence,
+                1,
+            )
+            self.assertIn(fake_h2_fence, t_with_fence)
+            t_full.write_text(t_with_fence, encoding="utf-8", newline="\n")
+
+            # Set pr_template to non-existent file -> doctor WARN
+            m_path = repo / "management" / "aico-manifest.json"
+            m = json.loads(m_path.read_text(encoding="utf-8"))
+            m["pr_template"] = ".github/pull_request_template.md"
+            m_path.write_text(json.dumps(m, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
+
+            p_doc_bad = run_script(repo, "doctor.py", "--json")
+            self.assertEqual(p_doc_bad.returncode, 1)
+            doc_bad = parse_json_output(p_doc_bad)
+            err_joined = "\n".join(doc_bad["errors"])
+            warn_joined = "\n".join(doc_bad["warnings"])
+            self.assertIn("未チェック項目", err_joined)
+            self.assertIn("採否判断（人間選別）に理由が記載されていません", err_joined)
+            self.assertIn("pr_template で指定されたファイルが存在しません", warn_joined)
+
+            # Fix all 3 issues and add unchecked-like text inside the same 3-backtick fence after ```bash
+            # so _find_unchecked_acs info-string check is also exercised.
+            t_fixed = t_full.read_text(encoding="utf-8").replace("* [ ] ", "* [x] ")
+            t_fixed = t_fixed.replace(
+                "```bash\n## Fake H2 inside fence\n",
+                "```bash\n- [ ] code example inside fence with info-string should be ignored\n## Fake H2 inside fence\n",
+                1,
+            )
+            self.assertIn("- [ ] code example inside fence with info-string should be ignored", t_fixed)
+            t_full.write_text(t_fixed, encoding="utf-8", newline="\n")
+            cf_full = repo / cf["path"]
+            cf_full.write_text(
+                cf_full.read_text(encoding="utf-8").replace(
+                    "<!-- 採用（in-progress）または見送り（cancelled）の判断と理由を記録する -->",
+                    "見送り：対象外のため。",
+                ),
+                encoding="utf-8",
+                newline="\n",
+            )
+            pr_file = repo / ".github" / "pull_request_template.md"
+            pr_file.parent.mkdir(parents=True, exist_ok=True)
+            pr_file.write_text("## 概要\n", encoding="utf-8", newline="\n")
+
+            p_doc_ok = run_script(repo, "doctor.py", "--json")
+            doc_ok = parse_json_output(p_doc_ok)
+            self.assertEqual(p_doc_ok.returncode, 0, json.dumps(doc_ok, ensure_ascii=False, indent=2))
+            self.assertEqual(doc_ok["errors"], [])
+            self.assertFalse(any("pr_template" in w for w in doc_ok["warnings"]))
+
+            # Symlink pr_template pointing outside repo root -> doctor must report ERROR
+            ext_tpl = Path(td) / "outside_tpl.md"
+            ext_tpl.write_text("## Outside\n", encoding="utf-8", newline="\n")
+            sym_tpl = repo / ".github" / "escape_tpl.md"
+            sym_tpl.symlink_to(ext_tpl)
+            m["pr_template"] = ".github/escape_tpl.md"
+            m_path.write_text(json.dumps(m, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
+            p_doc_sym = run_script(repo, "doctor.py", "--json")
+            self.assertEqual(p_doc_sym.returncode, 1)
+            doc_sym = parse_json_output(p_doc_sym)
+            self.assertTrue(any("リポジトリ外を参照しています" in e for e in doc_sym["errors"]))
 
 
 if __name__ == "__main__":

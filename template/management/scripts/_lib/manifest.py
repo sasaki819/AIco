@@ -156,6 +156,34 @@ def resolve_context(
     )
 
 
+
+def validate_pr_template_path(value: str) -> str:
+    """Validate and normalize optional pr_template relative path. Empty string is allowed."""
+    if not isinstance(value, str):
+        raise AicoError(f"pr_template は文字列である必要があります: {value!r}")
+    stripped = value.strip()
+    if stripped == "":
+        return ""
+    norm = stripped.replace("\\", "/")
+    if (
+        norm.startswith("/")
+        or norm.endswith("/")
+        or norm == "."
+        or (len(norm) >= 2 and norm[1] == ":")
+        or Path(norm).is_absolute()
+        or ".." in Path(norm).parts
+    ):
+        raise AicoError(
+            f"pr_template はリポジトリルートからの安全な相対ファイルパスである必要があります: {value!r}"
+        )
+    parts = [p for p in Path(norm).parts if p not in ("", ".")]
+    if not parts:
+        raise AicoError(
+            f"pr_template はリポジトリルートからの安全な相対ファイルパスである必要があります: {value!r}"
+        )
+    return "/".join(parts)
+
+
 def validate_manifest(data: dict[str, Any]) -> tuple[list[str], list[str]]:
     """Validate manifest schema. Returns (errors, warnings)."""
     errors: list[str] = []
@@ -189,6 +217,13 @@ def validate_manifest(data: dict[str, Any]) -> tuple[list[str], list[str]]:
         ib = data["integration_branch"]
         if not isinstance(ib, str) or not ib.strip():
             errors.append(f"integration_branch は非空の文字列である必要があります: {ib!r}")
+
+    if "pr_template" in data:
+        pt = data["pr_template"]
+        try:
+            validate_pr_template_path(pt)
+        except AicoError as exc:
+            errors.append(str(exc))
 
     enabled_tools: list[str] = []
     if "tools" in data:

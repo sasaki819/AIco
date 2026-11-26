@@ -90,8 +90,15 @@ def get_diff_name_status(
     base_branch: str,
     *,
     exclude_prefix: str | None = None,
+    include_uncommitted: bool = True,
 ) -> list[DiffEntry]:
-    """Run git diff --name-status <base>...HEAD and normalize entries."""
+    """Run git diff --name-status from base_branch and normalize entries.
+
+    When include_uncommitted is True (default), compares merge-base(base, HEAD)
+    against the working tree (committed + staged + unstaged tracked changes) and
+    appends .gitignore-respecting untracked files as status 'A'.
+    When include_uncommitted is False, compares <base>...HEAD (committed only).
+    """
     base_ref = base_branch
     verify = run_git(["rev-parse", "--verify", "--quiet", base_ref], cwd=repo_root, check=False)
     if verify.returncode != 0:
@@ -102,13 +109,24 @@ def get_diff_name_status(
         else:
             raise AicoError(f"比較基点ブランチが見つかりません: {base_branch}")
 
-    proc = run_git(
-        ["diff", "--name-status", "-z", f"{base_ref}...HEAD"],
-        cwd=repo_root,
-        check=True,
-    )
+    if include_uncommitted:
+        mb_proc = run_git(["merge-base", base_ref, "HEAD"], cwd=repo_root, check=False)
+        diff_target = mb_proc.stdout.strip() if mb_proc.returncode == 0 and mb_proc.stdout.strip() else base_ref
+        proc = run_git(
+            ["diff", "--name-status", "-z", diff_target],
+            cwd=repo_root,
+            check=True,
+        )
+    else:
+        proc = run_git(
+            ["diff", "--name-status", "-z", f"{base_ref}...HEAD"],
+            cwd=repo_root,
+            check=True,
+        )
+
     tokens = proc.stdout.split("\0")
     entries: list[DiffEntry] = []
+    seen_paths: set[str] = set()
     prefix_norm = exclude_prefix.strip("/").replace("\\", "/") + "/" if exclude_prefix else None
 
     def _is_excluded(p: str) -> bool:
@@ -134,6 +152,7 @@ def get_diff_name_status(
             kind = "R" if code.startswith("R") else "A"
             display = f"{old_path} -> {new_path}" if kind == "R" else new_path
             entries.append(DiffEntry(status=kind, path=display, sort_key=display))
+            seen_paths.add(new_path)
         else:
             if i + 1 >= len(tokens):
                 break
@@ -145,6 +164,22 @@ def get_diff_name_status(
             if status_char not in ("A", "M", "D", "R"):
                 status_char = "M"
             entries.append(DiffEntry(status=status_char, path=file_path, sort_key=file_path))
+            seen_paths.add(file_path)
+
+    if include_uncommitted:
+        untracked = run_git(
+            ["ls-files", "--others", "--exclude-standard", "-z"],
+            cwd=repo_root,
+            check=True,
+        )
+        for raw_p in untracked.stdout.split("\0"):
+            if not raw_p:
+                continue
+            file_path = raw_p.replace("\\", "/")
+            if _is_excluded(file_path) or file_path in seen_paths:
+                continue
+            entries.append(DiffEntry(status="A", path=file_path, sort_key=file_path))
+            seen_paths.add(file_path)
 
     entries.sort(key=lambda e: (e.sort_key, e.status))
     return entries

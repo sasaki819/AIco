@@ -457,11 +457,11 @@ def validate_transition(
             # Same phase transitions (review loop)
             if new_p == old_p:
                 allowed_ps_map = {
-                    "working": ("reviewing",),
-                    "reviewing": ("triaging",),
+                    "working": ("reviewing", "fixing"),
+                    "reviewing": ("triaging", "fixing"),
                     "triaging": ("fixing",),
                     "fixing": ("re-reviewing",),
-                    "re-reviewing": ("fixing", "triaging"),
+                    "re-reviewing": ("fixing", "triaging", "reviewing"),
                 }
                 if new_ps in allowed_ps_map.get(old_ps, ()):
                     return []
@@ -473,7 +473,7 @@ def validate_transition(
             # Forward phase transition
             old_idx = PHASE_INDEX[old_p]
             new_idx = PHASE_INDEX[new_p]
-            valid_phase_step = (new_idx == old_idx + 1) or (old_p == "planning" and new_p == "implementation")
+            valid_phase_step = (new_idx == old_idx + 1) or (old_p == "planning" and new_p in ("implementation", "closing"))
             valid_exit_ps = old_ps in ("working", "reviewing", "triaging", "re-reviewing")
             if valid_phase_step and valid_exit_ps and new_ps == "working":
                 return []

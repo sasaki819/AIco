@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -23,7 +24,7 @@ from _lib.frontmatter import parse_frontmatter
 from _lib.fs import check_utf8_lf, read_text_utf8
 from _lib.git_utils import branch_exists, get_current_branch, is_git_available
 from _lib.indexes import check_index_freshness
-from _lib.manifest import resolve_context, validate_manifest
+from _lib.manifest import resolve_context, validate_manifest, validate_pr_template_path
 from _lib.markdown_links import check_links_in_file, check_markdown_structure
 from _lib.markers import validate_markers
 from _lib.validation import (
@@ -36,6 +37,83 @@ from _lib.validation import (
 )
 
 FORBIDDEN_SCRIPT_EXTS = {".py", ".sh", ".bat", ".ps1"}
+H2_RE = re.compile(r"^##\s+(.*?)\s*$")
+UNCHECKED_AC_RE = re.compile(r"^\s*[-*]\s+\[\s\]\s*(.*)$")
+FENCE_RE = re.compile(r"^\s*(`{3,}|~{3,})")
+
+
+def _extract_h2_section(body: str, heading_prefix: str) -> str | None:
+    """Extract lines under an H2 section matching heading_prefix (up to next H2 or EOF)."""
+    lines = body.replace("\r\n", "\n").splitlines()
+    in_section = False
+    in_fence = False
+    fence_char = ""
+    fence_len = 0
+    collected: list[str] = []
+
+    for line in lines:
+        fm = FENCE_RE.match(line)
+        if fm:
+            marker = fm.group(1)
+            if not in_fence:
+                in_fence = True
+                fence_char = marker[0]
+                fence_len = len(marker)
+            elif marker[0] == fence_char and len(marker) >= fence_len and not line[fm.end():].strip():
+                in_fence = False
+            if in_section:
+                collected.append(line)
+            continue
+
+        if not in_fence:
+            hm = H2_RE.match(line)
+            if hm:
+                if in_section:
+                    break
+                if hm.group(1).strip().startswith(heading_prefix):
+                    in_section = True
+                    continue
+
+        if in_section:
+            collected.append(line)
+
+    if not in_section:
+        return None
+    return "\n".join(collected)
+
+
+def _find_unchecked_acs(body: str) -> list[str]:
+    """Return unchecked checkbox lines inside ## AC（受け入れ条件） section."""
+    section = _extract_h2_section(body, "AC（受け入れ条件）")
+    if section is None:
+        return []
+    unchecked: list[str] = []
+    in_fence = False
+    fence_char = ""
+    fence_len = 0
+    for line in section.splitlines():
+        fm = FENCE_RE.match(line)
+        if fm:
+            marker = fm.group(1)
+            if not in_fence:
+                in_fence = True
+                fence_char = marker[0]
+                fence_len = len(marker)
+            elif marker[0] == fence_char and len(marker) >= fence_len and not line[fm.end():].strip():
+                in_fence = False
+            continue
+        if not in_fence and UNCHECKED_AC_RE.match(line):
+            unchecked.append(line.strip())
+    return unchecked
+
+
+def _has_cancelled_decision_reason(body: str) -> bool:
+    """Return True if ## 採否判断（人間選別） contains substantive text beyond comments/whitespace."""
+    section = _extract_h2_section(body, "採否判断（人間選別）")
+    if section is None:
+        return False
+    stripped = re.sub(r"<!--.*?-->", "", section, flags=re.DOTALL).strip()
+    return bool(stripped)
 
 
 def _add_item(
@@ -109,10 +187,13 @@ def main() -> int:
     # Category 2: マニフェスト・ワーカー設定
     # =========================================================================
     cat = "マニフェスト・ワーカー設定"
+    cat2_issue = False
     m_errors, m_warnings = validate_manifest(ctx.manifest)
     for err in m_errors:
+        cat2_issue = True
         _add_item(checks, cat, "ERROR", err, "management/aico-manifest.json を修正してください")
     for warn in m_warnings:
+        cat2_issue = True
         _add_item(
             checks,
             cat,
@@ -124,6 +205,7 @@ def main() -> int:
     integ = str(ctx.manifest.get("integration_branch", ""))
     if integ and is_git_available():
         if not branch_exists(ctx.repo_root, integ):
+            cat2_issue = True
             _add_item(
                 checks,
                 cat,
@@ -131,7 +213,38 @@ def main() -> int:
                 f"integration_branch '{integ}' が Git リポジトリに存在しません",
                 "tools/aico.sh init --integration-branch <存在するブランチ> で設定してください",
             )
-    if not m_errors and not m_warnings:
+
+    raw_pr_tpl = ctx.manifest.get("pr_template")
+    if isinstance(raw_pr_tpl, str) and raw_pr_tpl.strip():
+        try:
+            pr_tpl_norm = validate_pr_template_path(raw_pr_tpl)
+        except Exception:
+            pr_tpl_norm = ""
+        if pr_tpl_norm:
+            pr_dst = (ctx.repo_root / pr_tpl_norm).resolve()
+            try:
+                pr_dst.relative_to(ctx.repo_root.resolve())
+            except ValueError:
+                cat2_issue = True
+                _add_item(
+                    checks,
+                    cat,
+                    "ERROR",
+                    f"pr_template がリポジトリ外を参照しています: {pr_tpl_norm}",
+                    "リポジトリ内の相対パスを aico-manifest.json の pr_template に指定してください",
+                )
+            else:
+                if not pr_dst.is_file():
+                    cat2_issue = True
+                    _add_item(
+                        checks,
+                        cat,
+                        "WARN",
+                        f"pr_template で指定されたファイルが存在しません: {pr_tpl_norm}",
+                        "tools/aico.sh init --pr-template <パス> で雛形を配置するか、aico-manifest.json の pr_template を確認してください",
+                    )
+
+    if not cat2_issue:
         _add_item(checks, cat, "OK", "aico-manifest.json および worker_models は妥当です")
 
     # =========================================================================
@@ -389,6 +502,19 @@ def main() -> int:
                         cat6_issue = True
                         _add_item(checks, cat, "ERROR", f"{rel_n}: {e}")
 
+            # Ticket done unchecked AC guard
+            if rec.data.get("status") == "done":
+                unchecked_acs = _find_unchecked_acs(rec.body)
+                if unchecked_acs:
+                    cat6_issue = True
+                    _add_item(
+                        checks,
+                        cat,
+                        "ERROR",
+                        f"{rel_p}: status: done ですが ## AC（受け入れ条件）に未チェック項目が {len(unchecked_acs)} 件残っています",
+                        "未完了の AC を確認し、達成済みなら [x] へ更新（人間受け入れ事項がある場合は根拠を添えて完了確定）してください",
+                    )
+
             # Ticket findings & done unresolved guard
             try:
                 open_f, inprog_f, all_f = count_unresolved_findings(rec.container_path, is_ticket=True)
@@ -397,6 +523,15 @@ def main() -> int:
                     for e in validate_record_frontmatter("review_finding_ticket", f.data, f.path):
                         cat6_issue = True
                         _add_item(checks, cat, "ERROR", f"{rel_f}: {e}")
+                    if f.data.get("status") == "cancelled" and not _has_cancelled_decision_reason(f.body):
+                        cat6_issue = True
+                        _add_item(
+                            checks,
+                            cat,
+                            "ERROR",
+                            f"{rel_f}: status: cancelled ですが ## 採否判断（人間選別）に理由が記載されていません",
+                            "見送り（cancelled）とした判断理由を ## 採否判断（人間選別）へ記載してください",
+                        )
                 if rec.data.get("status") == "done" and (open_f or inprog_f):
                     cat6_issue = True
                     ids = ", ".join(f.record_id for f in (open_f + inprog_f))
@@ -418,6 +553,15 @@ def main() -> int:
                     for e in validate_record_frontmatter("review_finding_runbook", f.data, f.path):
                         cat6_issue = True
                         _add_item(checks, cat, "ERROR", f"{rel_f}: {e}")
+                    if f.data.get("status") == "cancelled" and not _has_cancelled_decision_reason(f.body):
+                        cat6_issue = True
+                        _add_item(
+                            checks,
+                            cat,
+                            "ERROR",
+                            f"{rel_f}: status: cancelled ですが ## 採否判断（人間選別）に理由が記載されていません",
+                            "見送り（cancelled）とした判断理由を ## 採否判断（人間選別）へ記載してください",
+                        )
             except Exception as exc:
                 cat6_issue = True
                 _add_item(checks, cat, "ERROR", f"{rel_p}: Runbook レビュー指摘検査エラー: {exc}")

@@ -112,5 +112,22 @@ class TestUserGuideSyncAndQuality(unittest.TestCase):
             self.assertTrue(target.is_file(), f"template/AGENTS.md link missing: {lk}")
 
 
+    def test_pr_template_and_new_user_guide_sections(self) -> None:
+        pr_tpl = REPO_ROOT / "template" / "management" / "templates" / "pr-template.md"
+        self.assertTrue(pr_tpl.is_file())
+        self.assertEqual(check_utf8_lf(pr_tpl), [])
+        pr_text = pr_tpl.read_text(encoding="utf-8")
+        for term in FORBIDDEN_TERMS:
+            self.assertNotIn(term, pr_text)
+
+        gs_text = (REPO_ROOT / "docs" / "04.user-guide" / "01.getting-started.md").read_text(encoding="utf-8")
+        self.assertIn(".gitattributes", gs_text)
+        self.assertIn("pr_template", gs_text)
+
+        ug_text = (REPO_ROOT / "docs" / "04.user-guide" / "04.user-guide.md").read_text(encoding="utf-8")
+        self.assertIn("git worktree", ug_text)
+        self.assertIn("GitHub Actions", ug_text)
+        self.assertIn("GitLab CI", ug_text)
+
 if __name__ == "__main__":
     unittest.main()

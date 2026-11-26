@@ -231,6 +231,26 @@ class TestValidation(unittest.TestCase):
         bad_id = {**old, "id": "changed"}
         self.assertTrue(validation.validate_transition("ticket", old, bad_id, force=True))
 
+        # Human review direct adopt: working -> fixing and reviewing -> fixing (no --force)
+        to_fix = {**old, "phase_status": "fixing"}
+        self.assertEqual(validation.validate_transition("ticket", old, to_fix, force=False), [])
+        old_rev = {**old, "phase_status": "reviewing"}
+        self.assertEqual(validation.validate_transition("ticket", old_rev, to_fix, force=False), [])
+
+        # Multi-round in same phase: re-reviewing -> reviewing (no --force)
+        old_rerev = {**old, "phase_status": "re-reviewing"}
+        to_rev = {**old, "phase_status": "reviewing"}
+        self.assertEqual(validation.validate_transition("ticket", old_rerev, to_rev, force=False), [])
+
+        # Research-only skip: planning -> closing (no --force)
+        old_plan = {**old, "phase": "planning", "phase_status": "working"}
+        to_close = {**old, "phase": "closing", "phase_status": "working"}
+        self.assertEqual(validation.validate_transition("ticket", old_plan, to_close, force=False), [])
+
+        # Disallowed shortcut still rejected without force
+        bad_jump = {**old, "phase_status": "re-reviewing"}
+        self.assertTrue(validation.validate_transition("ticket", old, bad_jump, force=False))
+
     def test_determine_next_skill_table(self) -> None:
         t_open = {"status": "open", "phase": "drafting", "phase_status": "working"}
         self.assertEqual(
@@ -340,6 +360,17 @@ class TestAgentsSyncRenderers(unittest.TestCase):
         errs, warns = validate_manifest(manifest)
         self.assertEqual(errs, [])
         self.assertEqual(warns, [])
+
+        # Optional pr_template backward compatibility (omitted / empty / valid / invalid)
+        self.assertNotIn("pr_template", manifest)
+        manifest_empty = {**manifest, "pr_template": ""}
+        self.assertEqual(validate_manifest(manifest_empty), ([], []))
+        manifest_ok = {**manifest, "pr_template": ".github/pull_request_template.md"}
+        self.assertEqual(validate_manifest(manifest_ok), ([], []))
+        for bad_pt in ("/etc/passwd", "../escape.md", "C:/abs.md", "dir/", 123):
+            bad_m = {**manifest, "pr_template": bad_pt}
+            b_errs, _ = validate_manifest(bad_m)
+            self.assertTrue(b_errs, f"Expected error for pr_template={bad_pt!r}")
 
 
 if __name__ == "__main__":

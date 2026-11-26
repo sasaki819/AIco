@@ -526,5 +526,78 @@ def verify(ctx):
             self.assertEqual(p_doc.returncode, 0, p_doc.stdout + p_doc.stderr)
 
 
+    def test_init_pr_template_placement_no_overwrite_and_upgrade_preservation(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            repo = setup_installed_repo(base / "prproj", integration_branch="main")
+
+            # 1. init --pr-template creates file from AIco template when absent
+            p_init1 = run_script(
+                repo,
+                "init.py",
+                "--pr-template",
+                ".github/pull_request_template.md",
+                "--json",
+            )
+            self.assertEqual(p_init1.returncode, 0, p_init1.stdout + p_init1.stderr)
+            d1 = parse_json_output(p_init1)
+            self.assertEqual(d1["data"]["pr_template"], ".github/pull_request_template.md")
+            self.assertEqual(d1["data"]["pr_template_action"], "created")
+            pr_dst = repo / ".github" / "pull_request_template.md"
+            self.assertTrue(pr_dst.is_file())
+            self.assertEqual(
+                pr_dst.read_text(encoding="utf-8"),
+                (repo / "management" / "templates" / "pr-template.md").read_text(encoding="utf-8"),
+            )
+
+            # 2. Customize project PR template -> re-running init must NOT overwrite it
+            custom_body = "## Custom Project PR Template\n\n* [ ] Project check\n"
+            pr_dst.write_text(custom_body, encoding="utf-8", newline="\n")
+            p_init2 = run_script(
+                repo,
+                "init.py",
+                "--pr-template",
+                ".github/pull_request_template.md",
+                "--json",
+            )
+            self.assertEqual(p_init2.returncode, 0, p_init2.stdout + p_init2.stderr)
+            d2 = parse_json_output(p_init2)
+            self.assertEqual(d2["data"]["pr_template_action"], "kept_existing")
+            self.assertEqual(pr_dst.read_text(encoding="utf-8"), custom_body)
+
+            # 3. Upgrade preserves both manifest.pr_template and customized project PR template
+            git(repo, "add", ".")
+            git(repo, "commit", "-m", "chore: configure custom pr template")
+            src_v2 = make_source_copy(base / "src_v2", version="0.2.0", schema_version=1, strip_git=True)
+            p_upg = run_script(repo, "update.py", "--source", str(src_v2), "--json")
+            self.assertEqual(p_upg.returncode, 0, p_upg.stdout + p_upg.stderr)
+            m_after = json.loads((repo / "management" / "aico-manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(m_after["pr_template"], ".github/pull_request_template.md")
+            self.assertEqual(pr_dst.read_text(encoding="utf-8"), custom_body)
+
+            # 4. Unsafe path, existing directory, and external symlink rejected WITHOUT mutating aico-manifest.json
+            manifest_before_bad = (repo / "management" / "aico-manifest.json").read_text(encoding="utf-8")
+            p_bad = run_script(repo, "init.py", "--pr-template", "../escape.md", "--json")
+            self.assertEqual(p_bad.returncode, 1)
+            self.assertEqual((repo / "management" / "aico-manifest.json").read_text(encoding="utf-8"), manifest_before_bad)
+
+            p_dir = run_script(repo, "init.py", "--pr-template", ".github", "--json")
+            self.assertEqual(p_dir.returncode, 1)
+            self.assertEqual((repo / "management" / "aico-manifest.json").read_text(encoding="utf-8"), manifest_before_bad)
+
+            ext_file = base / "outside-pr-template.md"
+            ext_file.write_text("## Outside\n", encoding="utf-8", newline="\n")
+            ext_link = repo / "ext-pr-link.md"
+            ext_link.symlink_to(ext_file)
+            p_sym = run_script(repo, "init.py", "--pr-template", "ext-pr-link.md", "--json")
+            self.assertEqual(p_sym.returncode, 1)
+            self.assertEqual((repo / "management" / "aico-manifest.json").read_text(encoding="utf-8"), manifest_before_bad)
+            ext_link.unlink()
+
+            # 5. Clearing pr_template to "" passes doctor cleanly
+            p_clr = run_script(repo, "init.py", "--pr-template", "", "--json")
+            self.assertEqual(p_clr.returncode, 0, p_clr.stdout + p_clr.stderr)
+            self.assertEqual(parse_json_output(p_clr)["data"]["pr_template_action"], "unset")
+
 if __name__ == "__main__":
     unittest.main()

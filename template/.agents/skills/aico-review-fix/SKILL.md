@@ -47,4 +47,4 @@ description: 人間が採用した（in-progress）レビュー指摘をすべ�
 
 * 修正した指摘 ID 一覧
 * 関連コミットとテスト検証結果（実行環境・未確認事項を含む）
-* 次スキル（`aico-review-recheck`）の案内
+* 次のアクションを推奨案先頭の番号付き Markdown 選択肢（2〜4件）で案内する（推奨：`aico-review-recheck`）
