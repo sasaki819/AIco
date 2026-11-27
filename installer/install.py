@@ -32,6 +32,20 @@ CLAUDE_MD_EXPECTED = "@AGENTS.md\n"
 EXIT_OK = 0
 EXIT_ERROR = 1
 EXIT_USAGE = 2
+TEXT_LF_EXTENSIONS = frozenset({
+    ".md",
+    ".py",
+    ".json",
+    ".sh",
+    ".toml",
+    ".txt",
+    ".yml",
+    ".yaml",
+    ".cfg",
+    ".ini",
+})
+TEXT_LF_NAMES = frozenset({".gitignore", ".gitattributes"})
+TEXT_CRLF_EXTENSIONS = frozenset({".bat", ".cmd"})
 
 
 class InstallError(Exception):
@@ -126,9 +140,43 @@ def _write_bytes_atomic(path: Path, content: bytes, *, dry_run: bool, executable
     return True
 
 
-def _write_text_atomic(path: Path, text: str, *, dry_run: bool, executable: bool = False) -> bool:
+def _write_text_atomic(
+    path: Path,
+    text: str,
+    *,
+    dry_run: bool,
+    executable: bool = False,
+    eol: str = "\n",
+) -> bool:
     normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    if eol != "\n":
+        normalized = normalized.replace("\n", eol)
     return _write_bytes_atomic(path, normalized.encode("utf-8"), dry_run=dry_run, executable=executable)
+
+
+def _copy_template_file(
+    src_file: Path,
+    dst_file: Path,
+    *,
+    dry_run: bool,
+    executable: bool = False,
+) -> bool:
+    suffix = src_file.suffix.lower()
+    if suffix in TEXT_LF_EXTENSIONS or src_file.name in TEXT_LF_NAMES:
+        try:
+            text = src_file.read_bytes().decode("utf-8")
+        except UnicodeDecodeError:
+            pass
+        else:
+            return _write_text_atomic(dst_file, text, dry_run=dry_run, executable=executable, eol="\n")
+    elif suffix in TEXT_CRLF_EXTENSIONS:
+        try:
+            text = src_file.read_bytes().decode("utf-8")
+        except UnicodeDecodeError:
+            pass
+        else:
+            return _write_text_atomic(dst_file, text, dry_run=dry_run, executable=executable, eol="\r\n")
+    return _write_bytes_atomic(dst_file, src_file.read_bytes(), dry_run=dry_run, executable=executable)
 
 
 def _validate_management_root(raw: str) -> str:
@@ -268,8 +316,7 @@ def _perform_install(
                 changed.append(_to_posix_rel(dst_file, repo_root))
         else:
             is_exec = rel.parts[0] == "scripts" and src_file.suffix == ".py" and len(rel.parts) == 2
-            raw_bytes = src_file.read_bytes()
-            if _write_bytes_atomic(dst_file, raw_bytes, dry_run=dry_run, executable=is_exec):
+            if _copy_template_file(src_file, dst_file, dry_run=dry_run, executable=is_exec):
                 changed.append(_to_posix_rel(dst_file, repo_root))
 
     # 2. Copy template/.agents/skills/aico-* -> <repo_root>/.agents/skills/
@@ -279,19 +326,19 @@ def _perform_install(
                 continue
             rel = src_file.relative_to(skills_src)
             dst_file = skills_dst_root / rel
-            if _write_bytes_atomic(dst_file, src_file.read_bytes(), dry_run=dry_run):
+            if _copy_template_file(src_file, dst_file, dry_run=dry_run):
                 changed.append(_to_posix_rel(dst_file, repo_root))
 
     # 3. Copy tools/aico.sh & tools/aico.bat (with custom management_root rewrite)
-    for wrapper_name, is_bat, is_exec in (
-        ("aico.sh", False, True),
-        ("aico.bat", True, False),
+    for wrapper_name, is_bat, is_exec, eol in (
+        ("aico.sh", False, True, "\n"),
+        ("aico.bat", True, False, "\r\n"),
     ):
         src_w = tools_src / wrapper_name
         dst_w = repo_root / "tools" / wrapper_name
         w_text = src_w.read_text(encoding="utf-8")
         w_text = _rewrite_wrapper_root(w_text, management_root, is_bat=is_bat)
-        if _write_text_atomic(dst_w, w_text, dry_run=dry_run, executable=is_exec):
+        if _write_text_atomic(dst_w, w_text, dry_run=dry_run, executable=is_exec, eol=eol):
             changed.append(_to_posix_rel(dst_w, repo_root))
 
     # 4. AGENTS.md (append managed block if exists, else create new; do NOT create CLAUDE.md)

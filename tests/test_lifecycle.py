@@ -12,12 +12,14 @@ from pathlib import Path
 from tests.helpers import (
     INSTALLER_DIR,
     REPO_ROOT,
+    create_symlink_or_skip,
     git,
     init_git_repo,
     make_source_copy,
     parse_json_output,
     run_cmd,
     run_script,
+    run_wrapper,
     setup_installed_repo,
     snapshot_tree,
 )
@@ -142,13 +144,13 @@ class TestInstallAndInit(unittest.TestCase):
             self.assertEqual(p_sub.returncode, 1)
 
             # Guard 2: Dirty tree fails without --allow-dirty
-            (repo / "dirty.txt").write_text("x\n", encoding="utf-8")
+            (repo / "dirty.txt").write_text("x\n", encoding="utf-8", newline="\n")
             p_dirty = run_cmd([sys.executable, str(INSTALLER_DIR / "install.py"), "--source", str(REPO_ROOT)], repo)
             self.assertEqual(p_dirty.returncode, 1)
             (repo / "dirty.txt").unlink()
 
             # Guard 3: Custom CLAUDE.md conflict stops with zero writes
-            (repo / "CLAUDE.md").write_text("# Custom Claude Instructions\n", encoding="utf-8")
+            (repo / "CLAUDE.md").write_text("# Custom Claude Instructions\n", encoding="utf-8", newline="\n")
             git(repo, "add", "CLAUDE.md")
             git(repo, "commit", "-m", "add custom CLAUDE.md")
             snap_c = snapshot_tree(repo)
@@ -187,10 +189,22 @@ class TestInstallAndInit(unittest.TestCase):
             self.assertEqual(p_dup.returncode, 1)
             self.assertEqual(snapshot_tree(repo), snap_dup)
 
-            # tools/aico.sh init & doctor work seamlessly with custom management root!
-            p_init = run_cmd(
-                ["bash", str(repo / "tools" / "aico.sh"), "init", "--integration-branch", "main", "--tools", "claude,codex", "--json"],
+            # Verify wrapper line endings (aico.sh -> LF, aico.bat -> CRLF)
+            sh_bytes = (repo / "tools" / "aico.sh").read_bytes()
+            bat_bytes = (repo / "tools" / "aico.bat").read_bytes()
+            self.assertNotIn(b"\r", sh_bytes)
+            self.assertIn(b"\r\n", bat_bytes)
+            self.assertNotIn(b"\n", bat_bytes.replace(b"\r\n", b""))
+
+            # tools/aico.{sh,bat} init & doctor work seamlessly with custom management root!
+            p_init = run_wrapper(
                 repo,
+                "init",
+                "--integration-branch",
+                "main",
+                "--tools",
+                "claude,codex",
+                "--json",
             )
             self.assertEqual(p_init.returncode, 0, p_init.stdout + p_init.stderr)
             self.assertTrue((repo / "CLAUDE.md").is_file())
@@ -198,14 +212,14 @@ class TestInstallAndInit(unittest.TestCase):
             self.assertFalse((repo / ".github" / "skills").exists())
 
             # Re-running init removing claude cleans up AIco-managed CLAUDE.md & .claude/skills/
-            p_reinit = run_cmd(["bash", str(repo / "tools" / "aico.sh"), "init", "--tools", "codex", "--json"], repo)
+            p_reinit = run_wrapper(repo, "init", "--tools", "codex", "--json")
             self.assertEqual(p_reinit.returncode, 0, p_reinit.stdout + p_reinit.stderr)
             self.assertFalse((repo / "CLAUDE.md").exists())
             self.assertFalse((repo / ".claude" / "skills").exists())
 
             # Non-TTY init with no args does not hang and --dry-run changes nothing
             snap_init = snapshot_tree(repo)
-            p_nontty = run_cmd(["bash", str(repo / "tools" / "aico.sh"), "init", "--dry-run", "--json"], repo, stdin_text="")
+            p_nontty = run_wrapper(repo, "init", "--dry-run", "--json", stdin_text="")
             self.assertEqual(p_nontty.returncode, 0, p_nontty.stdout + p_nontty.stderr)
             self.assertEqual(snapshot_tree(repo), snap_init)
 
@@ -331,7 +345,7 @@ def verify(ctx):
             self.assertEqual(snapshot_tree(repo), snap_chk)
 
             # 2. Guards: dirty tree rejected; feature branch rejected
-            (repo / "dirty.tmp").write_text("dirty\n", encoding="utf-8")
+            (repo / "dirty.tmp").write_text("dirty\n", encoding="utf-8", newline="\n")
             self.assertEqual(run_script(repo, "update.py").returncode, 1)
             (repo / "dirty.tmp").unlink()
 
@@ -395,10 +409,12 @@ def verify(ctx):
             (src_broken / "installer" / "migrations" / "v0.1.0_to_v0.2.0.py").write_text(
                 'FROM_VERSION="0.1.0"\nTO_VERSION="0.2.0"\ndef check(c): return True\ndef plan(c): return []\ndef apply(c): return []\ndef verify(c): return True\n',
                 encoding="utf-8",
+                newline="\n",
             )
             (src_broken / "installer" / "migrations" / "v0.3.0_to_v0.4.0.py").write_text(
                 'FROM_VERSION="0.3.0"\nTO_VERSION="0.4.0"\ndef check(c): return True\ndef plan(c): return []\ndef apply(c): return []\ndef verify(c): return True\n',
                 encoding="utf-8",
+                newline="\n",
             )
             p_brk = run_script(repo, "update.py", "--source", str(src_broken), "--json")
             self.assertEqual(p_brk.returncode, 1)
@@ -409,6 +425,7 @@ def verify(ctx):
             (src_fail / "installer" / "migrations" / "v0.1.0_to_v0.2.0.py").write_text(
                 'FROM_VERSION="0.1.0"\nTO_VERSION="0.2.0"\ndef check(c): return (False, "simulated precheck failure")\ndef plan(c): return ["step"]\ndef apply(c): return []\ndef verify(c): return True\n',
                 encoding="utf-8",
+                newline="\n",
             )
             p_fail = run_script(repo, "update.py", "--source", str(src_fail), "--json")
             self.assertEqual(p_fail.returncode, 1)
@@ -575,7 +592,7 @@ def verify(ctx):
             self.assertEqual(m_after["pr_template"], ".github/pull_request_template.md")
             self.assertEqual(pr_dst.read_text(encoding="utf-8"), custom_body)
 
-            # 4. Unsafe path, existing directory, and external symlink rejected WITHOUT mutating aico-manifest.json
+            # 4. Unsafe path and existing directory rejected WITHOUT mutating aico-manifest.json
             manifest_before_bad = (repo / "management" / "aico-manifest.json").read_text(encoding="utf-8")
             p_bad = run_script(repo, "init.py", "--pr-template", "../escape.md", "--json")
             self.assertEqual(p_bad.returncode, 1)
@@ -585,19 +602,88 @@ def verify(ctx):
             self.assertEqual(p_dir.returncode, 1)
             self.assertEqual((repo / "management" / "aico-manifest.json").read_text(encoding="utf-8"), manifest_before_bad)
 
-            ext_file = base / "outside-pr-template.md"
-            ext_file.write_text("## Outside\n", encoding="utf-8", newline="\n")
-            ext_link = repo / "ext-pr-link.md"
-            ext_link.symlink_to(ext_file)
-            p_sym = run_script(repo, "init.py", "--pr-template", "ext-pr-link.md", "--json")
-            self.assertEqual(p_sym.returncode, 1)
-            self.assertEqual((repo / "management" / "aico-manifest.json").read_text(encoding="utf-8"), manifest_before_bad)
-            ext_link.unlink()
-
             # 5. Clearing pr_template to "" passes doctor cleanly
             p_clr = run_script(repo, "init.py", "--pr-template", "", "--json")
             self.assertEqual(p_clr.returncode, 0, p_clr.stdout + p_clr.stderr)
             self.assertEqual(parse_json_output(p_clr)["data"]["pr_template_action"], "unset")
+
+    def test_init_rejects_external_symlink_pr_template(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            repo = setup_installed_repo(base / "prsymproj", integration_branch="main")
+            manifest_path = repo / "management" / "aico-manifest.json"
+            manifest_before = manifest_path.read_text(encoding="utf-8")
+
+            ext_file = base / "outside-pr-template.md"
+            ext_file.write_text("## Outside\n", encoding="utf-8", newline="\n")
+            ext_link = repo / "ext-pr-link.md"
+            create_symlink_or_skip(self, ext_link, ext_file)
+
+            p_sym = run_script(repo, "init.py", "--pr-template", "ext-pr-link.md", "--json")
+            self.assertEqual(p_sym.returncode, 1)
+            sym_data = parse_json_output(p_sym)
+            self.assertTrue(
+                any("リポジトリ外を参照しています" in e for e in sym_data["errors"]),
+                sym_data,
+            )
+            self.assertEqual(manifest_path.read_text(encoding="utf-8"), manifest_before)
+
+    def test_install_and_upgrade_normalize_crlf_source_and_emit_crlf_bat(self) -> None:
+        def _poison_newlines(src_root: Path) -> None:
+            tpl_root = src_root / "template"
+            for p in tpl_root.rglob("*"):
+                if not p.is_file():
+                    continue
+                if p.suffix.lower() in {".md", ".py", ".json", ".sh", ".toml"}:
+                    txt = p.read_text(encoding="utf-8").replace("\r\n", "\n").replace("\r", "\n")
+                    p.write_bytes(txt.replace("\n", "\r\n").encode("utf-8"))
+                elif p.suffix.lower() == ".bat":
+                    txt = p.read_text(encoding="utf-8").replace("\r\n", "\n").replace("\r", "\n")
+                    p.write_bytes(txt.encode("utf-8"))
+
+        def _assert_deployed_newlines(repo_dir: Path) -> None:
+            for check_dir in (repo_dir / "management", repo_dir / ".agents" / "skills"):
+                for p in check_dir.rglob("*"):
+                    if p.is_file() and p.suffix.lower() in {".md", ".py", ".json", ".sh", ".toml"}:
+                        self.assertNotIn(b"\r", p.read_bytes(), f"CRLF leaked into {p}")
+            self.assertNotIn(b"\r", (repo_dir / "AGENTS.md").read_bytes())
+            self.assertNotIn(b"\r", (repo_dir / "tools" / "aico.sh").read_bytes())
+            bat_raw = (repo_dir / "tools" / "aico.bat").read_bytes()
+            self.assertIn(b"\r\n", bat_raw)
+            self.assertNotIn(b"\n", bat_raw.replace(b"\r\n", b""))
+            self.assertNotIn(b"\r", bat_raw.replace(b"\r\n", b""))
+
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            src_v1 = make_source_copy(base / "src_v1", version="0.1.0", strip_git=True)
+            src_v2 = make_source_copy(base / "src_v2", version="0.2.0", strip_git=True)
+            _poison_newlines(src_v1)
+            _poison_newlines(src_v2)
+
+            repo = init_git_repo(base / "crlf_proj", default_branch="main")
+            p_inst = run_cmd(
+                [sys.executable, str(src_v1 / "installer" / "install.py"), "--source", str(src_v1), "--json"],
+                repo,
+            )
+            self.assertEqual(p_inst.returncode, 0, p_inst.stdout + p_inst.stderr)
+            _assert_deployed_newlines(repo)
+
+            p_init = run_script(repo, "init.py", "--integration-branch", "main", "--tools", "claude,codex", "--json")
+            self.assertEqual(p_init.returncode, 0, p_init.stdout + p_init.stderr)
+            git(repo, "add", ".")
+            git(repo, "commit", "-m", "chore: install from CRLF source")
+
+            # Upgrade from CRLF v0.2.0 source normalizes all assets & passes doctor
+            p_upg = run_script(repo, "update.py", "--source", str(src_v2), "--json")
+            self.assertEqual(p_upg.returncode, 0, p_upg.stdout + p_upg.stderr)
+            _assert_deployed_newlines(repo)
+            git(repo, "add", ".")
+            git(repo, "commit", "-m", "chore: upgrade from CRLF source")
+
+            # Same-version re-run remains idempotent (0 changed files)
+            p_same = run_script(repo, "update.py", "--source", str(src_v2), "--json")
+            self.assertEqual(p_same.returncode, 0, p_same.stdout + p_same.stderr)
+            self.assertEqual(parse_json_output(p_same)["changed_files"], [])
 
 if __name__ == "__main__":
     unittest.main()
