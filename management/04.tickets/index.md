@@ -5,6 +5,7 @@
 
 | ID | タイトル | 状態 | フェーズ | 作業ブランチ | 親チケット | 更新日時 |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| [20261127-124457-ticket-release-v0-2-0-and-latest-branch](20261127-124457-ticket-release-v0-2-0-and-latest-branch/index.md) | v0.2.0 のリリースと latest ブランチ作成（自己適用検証を含む） | open | drafting / working | feature/20261127-124457-ticket-release-v0-2-0-and-latest-branch | - | 2026-11-27 12:44:57 |
 | [20261124-155511-ticket-worker-models-review-runbook](20261124-155511-ticket-worker-models-review-runbook/index.md) | worker_models おすすめ設定見直し用 Runbook の作成 | open | drafting / working | feature/20261124-155511-ticket-worker-models-review-runbook | - | 2026-11-24 15:55:11 |
 
 ## 完了・中止（closed）
