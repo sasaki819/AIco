@@ -39,9 +39,9 @@
 * [x] ステップ 2：`template/management/aico-manifest.json`・`installer/install.py`・`installer/upgrade.py` のバージョンを `0.2.0` へ更新し、`installer/migrations/README.md` を実態に合わせて更新する。
 * [x] ステップ 3：`CHANGELOG.md` へ `v0.2.0` の変更履歴（変更内容・変更意図・移行要否と手順・検証済み／未確認環境）を追記する。
 * [x] ステップ 4：作業ブランチ上で Linux および Windows 11 VM（管理者権限・`gsudo -i Medium` 一般権限）の全自動テストと `doctor.py` を確認し、独立レビュー（`aico-review`）および指摘修正・独立再確認（`aico-review-recheck`）を完了する。
-* [ ] ステップ 5：作業ブランチ上でリリース準備変更をコミット後に `management/scripts/update_changed_files.py` を実行して `index.md` の `## 変更ファイル` を反映・コミットしたうえで `main` へマージする。その後 `main` 上で `tools/aico.sh update --source .` を実行し、`tools/aico.sh doctor --strict --json`（`OK=9 / WARN=0 / ERROR=0`）および Linux・Windows 11 VM 全テスト通過・`CHANGELOG.md` の検証済み環境記載との一致（異常・不一致がないこと）を確認して自己適用差分をコミットする。
-* [ ] ステップ 6：自己適用コミットに注釈付きタグ `v0.2.0` と `latest` ブランチを作成して `origin` へプッシュし、GitHub 公開ミラーへの `v0.2.0` タグおよび `latest` ブランチ反映を確認する。
-* [ ] ステップ 7：全 4 AC・DoD を実物照合してチケットをクローズし、一覧・ダッシュボードを再生成する（`main` 上では `update_changed_files.py` を再実行しない）。
+* [x] ステップ 5：作業ブランチ上でリリース準備変更をコミット後に `management/scripts/update_changed_files.py` を実行して `index.md` の `## 変更ファイル` を反映・コミットしたうえで `main` へマージする。その後 `main` 上で `tools/aico.sh update --source .` を実行し、`tools/aico.sh doctor --strict --json`（`OK=9 / WARN=0 / ERROR=0`）および Linux・Windows 11 VM 全テスト通過・`CHANGELOG.md` の検証済み環境記載との一致（異常・不一致がないこと）を確認して自己適用差分をコミットする。
+* [x] ステップ 6：自己適用コミットに注釈付きタグ `v0.2.0` と `latest` ブランチを作成して `origin` へプッシュし、GitHub 公開ミラーへの `v0.2.0` タグおよび `latest` ブランチ反映を確認する。
+* [x] ステップ 7：全 4 AC・DoD を実物照合してチケットをクローズし、一覧・ダッシュボードを再生成する（`main` 上では `update_changed_files.py` を再実行しない）。
 
 ## 検証方針
 
