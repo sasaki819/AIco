@@ -1,11 +1,11 @@
 ---
 id: 20261127-124457-ticket-release-v0-2-0-and-latest-branch
 title: v0.2.0 のリリースと latest ブランチ作成（自己適用検証を含む）
-status: open
+status: in-progress
 created: 2026-11-27 12:44:57
-updated: 2026-11-27 12:44:57
-phase: drafting
-phase_status: working
+updated: 2026-11-27 18:52:08
+phase: implementation
+phase_status: re-reviewing
 branch: feature/20261127-124457-ticket-release-v0-2-0-and-latest-branch
 parent: null
 children: []
@@ -34,24 +34,33 @@ adrs: []
 
 ## DoR（着手合意）
 
-* **任せる範囲**：`v0.1.0..HEAD` の変更棚卸し・マイグレーション要否および自己適用リハーサル調査（`plan.md` 策定）、バージョン定数・`CHANGELOG.md`・関連テストの更新、独立レビュー実施、Linux／Windows 11 VM での検証、および人間承認後の自己適用・タグ発行・`latest` ブランチ作成・プッシュ実行。
-* **未決事項**：
-  * `v0.1.0` 実物運営領域（既存チケット記録や `AGENTS.md`・`management/01.manual/` 等）へ `v0.2.0` の `tools/aico.sh update --source .` を適用した際に、`doctor.py --strict` の新設品質ゲート等で既存記録の補正またはマイグレーションスクリプト追加が必要になるか（計画フェーズで一時クローンを用いて事前リハーサル確認する）。
+* **任せる範囲**：`v0.1.0..HEAD` の変更棚卸し・マイグレーション要否および自己適用リハーサル調査（`plan.md` 策定）、バージョン定数・`CHANGELOG.md`・関連テストの更新、独立レビュー実施、Linux／Windows 11 VM（管理者＋`gsudo -i Medium` 一般権限）での検証、および人間承認後の自己適用・タグ発行・`latest` ブランチ作成・プッシュ実行。
+* **合意済み前提**：
+  * リリースタグは `v0.1.0` と同じ注釈付きタグ（`git tag -a v0.2.0 -m "Release v0.2.0"`）を使用する。
+  * 公開ミラー（GitHub）は GitLab 側ミラーリポジトリ設定により自動同期される前提とし、`origin`（GitLab）へ `main`・`latest`・`v0.2.0` をプッシュ後に反映を確認する。
+* **未決事項（計画フェーズで調査・合意）**：
+  * `v0.1.0` 実物運営領域へ `v0.2.0` の `tools/aico.sh update --source .` を一時クローンで事前リハーサル適用し、`doctor.py --strict` の新設品質ゲート等で既存記録の補正やマイグレーション追加が必要か確認する。
   * 作業ブランチ（`feature/<チケットID>`）でのリリース準備マージと、統合ブランチ（`main`）上での自己適用・タグ発行・`latest` 作成の切り分け順序（`docs/03.spec/08.adoption-and-migration.md` 4.2 節の段階 2〜4 との整合）。
-  * 公開ミラー（GitHub `https://github.com/sasaki819/AIco.git`）への反映方法（GitLab 側ミラー設定で自動同期されるか、手動プッシュが必要か）。
-  * リリース時のタグ形式（注釈付きタグ `git tag -a v0.2.0` と軽量タグのどちらを採るか）。
-* **着手合意**：未合意
+* **着手合意**：合意済み（2026-11-27）
 
 ## 現在地
 
-* **状況**：起票完了（`open / drafting / working`）
-* **ブロッカー（確認待ち）**：DoR（着手合意）の確認待ち
-* **次に取る行動**：DoR を確認し `aico-ticket-start` で作業ブランチを作成する
+* **状況**：作業ブランチ分のリリース準備実装・検証・独立レビューおよび独立再確認完了（全 4 指摘解消・新規指摘 0 件）。`main` マージおよび段階 3（本番自己適用）実施の人間承認待ち（`in-progress / implementation / re-reviewing`）
+* **ブロッカー（確認待ち）**：作業ブランチのコミット・`update_changed_files.py` 反映・`main` マージおよび本番自己適用（ステップ 5）の実行承認
+* **次に取る行動**：人間承認のうえ、作業ブランチでコミット → `update_changed_files.py` 反映コミット → `main` へマージ → `tools/aico.sh update --source .` 自己適用＆検証へ進む
 
 ## 変更ファイル
 
 <!-- AICO:AUTO:BEGIN:changed-files -->
-変更されたプロジェクト資産はない。
+| 種別 | パス |
+| :--- | :--- |
+| `M` | `CHANGELOG.md` |
+| `M` | `installer/install.py` |
+| `M` | `installer/migrations/README.md` |
+| `M` | `installer/upgrade.py` |
+| `M` | `template/management/aico-manifest.json` |
+| `M` | `tests/helpers.py` |
+| `M` | `tests/test_lifecycle.py` |
 <!-- AICO:AUTO:END:changed-files -->
 
 ## DoD（完了の定義）

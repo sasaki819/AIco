@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import sys
 import tempfile
@@ -402,7 +403,8 @@ def verify(ctx):
     def test_broken_and_failing_migrations_and_archive_source(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             base = Path(td)
-            repo = setup_installed_repo(base / "proj", integration_branch="main")
+            src_v010 = make_source_copy(base / "src_v010", version="0.1.0", strip_git=True)
+            repo = setup_installed_repo(base / "proj", integration_branch="main", source_dir=src_v010)
 
             # Source archive (no .git) with broken migration chain (0.1.0->0.2.0 and 0.3.0->0.4.0, missing 0.2.0->0.3.0)
             src_broken = make_source_copy(base / "src_broken", version="0.4.0", schema_version=2, strip_git=True)
@@ -494,7 +496,7 @@ def verify(ctx):
             self.assertIn("01.getting-started.md", p_plain.stdout)
 
             # 5. Upgrade removes obsolete 01.manual/workflow-reference.md cleanly and passes doctor
-            repo_upg = setup_installed_repo(base / "proj_upg", integration_branch="main")
+            repo_upg = setup_installed_repo(base / "proj_upg", integration_branch="main", source_dir=src)
             obsolete_ref = repo_upg / "management" / "01.manual" / "workflow-reference.md"
             obsolete_ref.write_text("# Old Workflow Reference\n", encoding="utf-8", newline="\n")
             git(repo_upg, "add", ".")
@@ -503,6 +505,10 @@ def verify(ctx):
             src_v2 = make_source_copy(base / "src_v2", version="0.2.0", schema_version=1, strip_git=True)
             p_upg = run_script(repo_upg, "update.py", "--source", str(src_v2), "--json")
             self.assertEqual(p_upg.returncode, 0, p_upg.stdout + p_upg.stderr)
+            self.assertEqual(
+                json.loads((repo_upg / "management" / "aico-manifest.json").read_text(encoding="utf-8"))["aico_version"],
+                "0.2.0",
+            )
             self.assertFalse(obsolete_ref.exists())
             for expected in ("index.md", "01.getting-started.md", "02.tutorial.md", "03.cheatsheet.md", "04.user-guide.md", "05.worker-models.md"):
                 self.assertTrue((repo_upg / "management" / "01.manual" / expected).is_file())
@@ -546,7 +552,8 @@ def verify(ctx):
     def test_init_pr_template_placement_no_overwrite_and_upgrade_preservation(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             base = Path(td)
-            repo = setup_installed_repo(base / "prproj", integration_branch="main")
+            src_v1 = make_source_copy(base / "src_v1", version="0.1.0", strip_git=True)
+            repo = setup_installed_repo(base / "prproj", integration_branch="main", source_dir=src_v1)
 
             # 1. init --pr-template creates file from AIco template when absent
             p_init1 = run_script(
@@ -589,6 +596,7 @@ def verify(ctx):
             p_upg = run_script(repo, "update.py", "--source", str(src_v2), "--json")
             self.assertEqual(p_upg.returncode, 0, p_upg.stdout + p_upg.stderr)
             m_after = json.loads((repo / "management" / "aico-manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(m_after["aico_version"], "0.2.0")
             self.assertEqual(m_after["pr_template"], ".github/pull_request_template.md")
             self.assertEqual(pr_dst.read_text(encoding="utf-8"), custom_body)
 
@@ -684,6 +692,27 @@ def verify(ctx):
             p_same = run_script(repo, "update.py", "--source", str(src_v2), "--json")
             self.assertEqual(p_same.returncode, 0, p_same.stdout + p_same.stderr)
             self.assertEqual(parse_json_output(p_same)["changed_files"], [])
+
+
+    def test_distribution_source_versions_are_consistent_semver(self) -> None:
+        semver_re = re.compile(r"^\d+\.\d+\.\d+$")
+        manifest = json.loads(
+            (REPO_ROOT / "template" / "management" / "aico-manifest.json").read_text(encoding="utf-8")
+        )
+        manifest_ver = manifest["aico_version"]
+        self.assertRegex(manifest_ver, semver_re)
+
+        version_re = re.compile(r'^AICO_VERSION\s*=\s*"([^"]+)"', re.MULTILINE)
+        for name in ("install.py", "upgrade.py"):
+            src = (INSTALLER_DIR / name).read_text(encoding="utf-8")
+            matches = version_re.findall(src)
+            self.assertEqual(len(matches), 1, f"{name} must declare AICO_VERSION exactly once")
+            self.assertRegex(matches[0], semver_re)
+            self.assertEqual(
+                matches[0],
+                manifest_ver,
+                f"installer/{name} AICO_VERSION ({matches[0]}) != template aico_version ({manifest_ver})",
+            )
 
 if __name__ == "__main__":
     unittest.main()
