@@ -52,7 +52,15 @@ adrs: []
 ## 変更ファイル
 
 <!-- AICO:AUTO:BEGIN:changed-files -->
-変更されたプロジェクト資産はない。
+| 種別 | パス |
+| :--- | :--- |
+| `M` | `CHANGELOG.md` |
+| `M` | `installer/install.py` |
+| `M` | `installer/migrations/README.md` |
+| `M` | `installer/upgrade.py` |
+| `M` | `template/management/aico-manifest.json` |
+| `M` | `tests/helpers.py` |
+| `M` | `tests/test_lifecycle.py` |
 <!-- AICO:AUTO:END:changed-files -->
 
 ## DoD（完了の定義）
