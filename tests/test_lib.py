@@ -188,8 +188,8 @@ class TestMarkdownLinks(unittest.TestCase):
             tkt = mgmt / "04.tickets" / "t1" / "index.md"
             disc.parent.mkdir(parents=True)
             tkt.parent.mkdir(parents=True)
-            disc.write_text("# D1\n\nSee [ticket](../04.tickets/t1/index.md)\n", encoding="utf-8")
-            tkt.write_text("# T1\n\nSee [disc](../../02.discussions/d1.md)\n", encoding="utf-8")
+            disc.write_text("# D1\n\nSee [ticket](../04.tickets/t1/index.md)\n", encoding="utf-8", newline="\n")
+            tkt.write_text("# T1\n\nSee [disc](../../02.discussions/d1.md)\n", encoding="utf-8", newline="\n")
 
             new_tkt_dir = mgmt / "04.tickets" / "archived" / "t1"
             plans = markdown_links.plan_link_rewrites_for_move(mgmt, tkt.parent, new_tkt_dir)

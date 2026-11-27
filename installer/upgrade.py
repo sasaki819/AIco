@@ -33,6 +33,20 @@ MANAGED_END = "<!-- AICO:END -->"
 SEMVER_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 EXIT_OK = 0
 EXIT_ERROR = 1
+TEXT_LF_EXTENSIONS = frozenset({
+    ".md",
+    ".py",
+    ".json",
+    ".sh",
+    ".toml",
+    ".txt",
+    ".yml",
+    ".yaml",
+    ".cfg",
+    ".ini",
+})
+TEXT_LF_NAMES = frozenset({".gitignore", ".gitattributes"})
+TEXT_CRLF_EXTENSIONS = frozenset({".bat", ".cmd"})
 
 
 class UpgradeError(Exception):
@@ -134,9 +148,43 @@ def _write_bytes_atomic(path: Path, content: bytes, *, dry_run: bool, executable
     return True
 
 
-def _write_text_atomic(path: Path, text: str, *, dry_run: bool, executable: bool = False) -> bool:
+def _write_text_atomic(
+    path: Path,
+    text: str,
+    *,
+    dry_run: bool,
+    executable: bool = False,
+    eol: str = "\n",
+) -> bool:
     normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    if eol != "\n":
+        normalized = normalized.replace("\n", eol)
     return _write_bytes_atomic(path, normalized.encode("utf-8"), dry_run=dry_run, executable=executable)
+
+
+def _copy_template_file(
+    src_file: Path,
+    dst_file: Path,
+    *,
+    dry_run: bool,
+    executable: bool = False,
+) -> bool:
+    suffix = src_file.suffix.lower()
+    if suffix in TEXT_LF_EXTENSIONS or src_file.name in TEXT_LF_NAMES:
+        try:
+            text = src_file.read_bytes().decode("utf-8")
+        except UnicodeDecodeError:
+            pass
+        else:
+            return _write_text_atomic(dst_file, text, dry_run=dry_run, executable=executable, eol="\n")
+    elif suffix in TEXT_CRLF_EXTENSIONS:
+        try:
+            text = src_file.read_bytes().decode("utf-8")
+        except UnicodeDecodeError:
+            pass
+        else:
+            return _write_text_atomic(dst_file, text, dry_run=dry_run, executable=executable, eol="\r\n")
+    return _write_bytes_atomic(dst_file, src_file.read_bytes(), dry_run=dry_run, executable=executable)
 
 
 def _try_local_dir(raw_source: str) -> Path | None:
@@ -255,7 +303,7 @@ def _mirror_tree(
         expected_rels.add(rel)
         dst_file = dst_dir / rel
         is_exec = executable_top_py and len(rel.parts) == 1 and src_file.suffix == ".py"
-        if _write_bytes_atomic(dst_file, src_file.read_bytes(), dry_run=dry_run, executable=is_exec):
+        if _copy_template_file(src_file, dst_file, dry_run=dry_run, executable=is_exec):
             changed.append(_to_posix_rel(dst_file, repo_root))
 
     deleted_paths: list[Path] = []
@@ -506,11 +554,14 @@ def _run_upgrade(
         )
 
     # 2d. tools/aico.{sh,bat} (re-apply custom management_root, skip write if identical)
-    for wrapper_name, is_bat, is_exec in (("aico.sh", False, True), ("aico.bat", True, False)):
+    for wrapper_name, is_bat, is_exec, eol in (
+        ("aico.sh", False, True, "\n"),
+        ("aico.bat", True, False, "\r\n"),
+    ):
         src_w = template_dir / "tools" / wrapper_name
         dst_w = repo_root / "tools" / wrapper_name
         w_text = _rewrite_wrapper_root(src_w.read_text(encoding="utf-8"), mgmt_root_rel, is_bat=is_bat)
-        if _write_text_atomic(dst_w, w_text, dry_run=dry_run, executable=is_exec):
+        if _write_text_atomic(dst_w, w_text, dry_run=dry_run, executable=is_exec, eol=eol):
             changed.append(_to_posix_rel(dst_w, repo_root))
 
     # Step 3: Execute sequential migrations

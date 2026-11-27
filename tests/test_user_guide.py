@@ -129,5 +129,22 @@ class TestUserGuideSyncAndQuality(unittest.TestCase):
         self.assertIn("GitHub Actions", ug_text)
         self.assertIn("GitLab CI", ug_text)
 
+    def test_repo_gitattributes_enforces_lf_and_bat_crlf(self) -> None:
+        ga = REPO_ROOT / ".gitattributes"
+        self.assertTrue(ga.is_file(), "Repository root .gitattributes must exist")
+        self.assertEqual(check_utf8_lf(ga), [])
+        ga_lines = {line.strip() for line in ga.read_text(encoding="utf-8").splitlines() if line.strip()}
+        for expected in (
+            ".gitattributes text eol=lf",
+            ".gitignore text eol=lf",
+            "*.md text eol=lf",
+            "*.json text eol=lf",
+            "*.py text eol=lf",
+            "*.sh text eol=lf",
+            "*.toml text eol=lf",
+            "*.bat text eol=crlf",
+        ):
+            self.assertIn(expected, ga_lines)
+
 if __name__ == "__main__":
     unittest.main()

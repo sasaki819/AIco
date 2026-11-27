@@ -8,6 +8,7 @@ import os
 import shutil
 import subprocess
 import sys
+import unittest
 from pathlib import Path
 from typing import Any
 
@@ -28,7 +29,13 @@ def run_cmd(
     merged_env["PYTHONUTF8"] = "1"
     merged_env["PYTHONIOENCODING"] = "utf-8"
     if env is not None:
-        merged_env.update(env)
+        if os.name == "nt":
+            for k, v in env.items():
+                for existing_k in [ek for ek in merged_env if ek.upper() == k.upper()]:
+                    del merged_env[existing_k]
+                merged_env[k] = v
+        else:
+            merged_env.update(env)
     return subprocess.run(
         args,
         cwd=str(cwd),
@@ -54,6 +61,7 @@ def init_git_repo(repo_dir: Path, *, default_branch: str = "develop") -> Path:
     git(repo_dir, "init", "-b", default_branch)
     git(repo_dir, "config", "user.name", "AIco Test")
     git(repo_dir, "config", "user.email", "aico-test@example.com")
+    git(repo_dir, "config", "core.autocrlf", "false")
     (repo_dir / "README.md").write_text("# Sample Repo\n", encoding="utf-8", newline="\n")
     git(repo_dir, "add", ".")
     git(repo_dir, "commit", "-m", "chore: initial commit")
@@ -110,6 +118,32 @@ def run_script(
 ) -> subprocess.CompletedProcess[str]:
     script_path = repo_dir / management_root / "scripts" / script_name
     return run_cmd([sys.executable, str(script_path), *args], repo_dir, env=env)
+
+
+def run_wrapper(
+    repo_dir: Path,
+    *args: str,
+    env: dict[str, str] | None = None,
+    stdin_text: str | None = None,
+) -> subprocess.CompletedProcess[str]:
+    if os.name == "nt":
+        wrapper = repo_dir / "tools" / "aico.bat"
+        return run_cmd(["cmd", "/d", "/c", "call", str(wrapper), *args], repo_dir, env=env, stdin_text=stdin_text)
+    wrapper = repo_dir / "tools" / "aico.sh"
+    return run_cmd(["bash", str(wrapper), *args], repo_dir, env=env, stdin_text=stdin_text)
+
+
+def create_symlink_or_skip(test_case: unittest.TestCase, link_path: Path, target_path: Path) -> None:
+    """Create a symlink, or skip cleanly on Windows without symlink privileges (WinError 1314)."""
+    try:
+        link_path.symlink_to(target_path)
+    except OSError as exc:
+        if os.name == "nt" and getattr(exc, "winerror", None) == 1314:
+            test_case.skipTest(
+                "Windows 環境でシンボリックリンク作成権限が不足しています (WinError 1314)。"
+                "開発者モードを有効にするか管理者権限の PowerShell で再実行してください。"
+            )
+        raise
 
 
 def parse_json_output(proc: subprocess.CompletedProcess[str]) -> dict[str, Any]:

@@ -1,4 +1,4 @@
-"""CLI / E2E integration tests for all 15 daily scripts, _launcher.py, and tools/aico.sh."""
+"""CLI / E2E integration tests for all 15 daily scripts, _launcher.py, and tools/aico.{sh,bat}."""
 
 from __future__ import annotations
 
@@ -11,10 +11,12 @@ import unittest
 from pathlib import Path
 
 from tests.helpers import (
+    create_symlink_or_skip,
     git,
     parse_json_output,
     run_cmd,
     run_script,
+    run_wrapper,
     setup_installed_repo,
     snapshot_tree,
 )
@@ -402,7 +404,7 @@ class TestDailyScriptsEndToEnd(unittest.TestCase):
             git(repo, "commit", "-m", "feat: add app.py")
 
             # Default update_changed_files.py includes uncommitted/untracked files with status ok
-            (repo / "temp_dirty.txt").write_text("dirty\n", encoding="utf-8")
+            (repo / "temp_dirty.txt").write_text("dirty\n", encoding="utf-8", newline="\n")
             p_cf_def = run_script(repo, "update_changed_files.py", "--json")
             self.assertEqual(p_cf_def.returncode, 0, p_cf_def.stdout + p_cf_def.stderr)
             cf_def = parse_json_output(p_cf_def)
@@ -679,9 +681,9 @@ class TestDailyScriptsEndToEnd(unittest.TestCase):
                 self.assertEqual(p_strict_ok.returncode, 0, json.dumps(doc_ok, ensure_ascii=False, indent=2))
 
             # Introduce faults across categories and verify doctor detects them
-            (repo / "GEMINI.md").write_text("# forbidden\n", encoding="utf-8")
+            (repo / "GEMINI.md").write_text("# forbidden\n", encoding="utf-8", newline="\n")
             (repo / "management" / "archived").mkdir()
-            (repo / ".agents" / "skills" / "my-custom" / "bad.py").write_text("print(1)\n", encoding="utf-8")
+            (repo / ".agents" / "skills" / "my-custom" / "bad.py").write_text("print(1)\n", encoding="utf-8", newline="\n")
             (repo / "management" / "01.manual" / "01.getting-started.md").write_text(
                 "# Title\n\n[broken](./does-not-exist.md)\n", encoding="utf-8", newline="\n"
             )
@@ -698,29 +700,95 @@ class TestDailyScriptsEndToEnd(unittest.TestCase):
     def test_wrapper_japanese_space_path_nontty_and_no_uv_fallback(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             repo = setup_installed_repo(Path(td) / "テスト repo スペース", integration_branch="main")
-            wrapper = repo / "tools" / "aico.sh"
 
             # Non-TTY no-args returns exit 0 with menu (no hang)
-            p_menu = run_cmd(["bash", str(wrapper)], repo, stdin_text="")
+            p_menu = run_wrapper(repo, stdin_text="")
             self.assertEqual(p_menu.returncode, 0, p_menu.stderr)
             self.assertIn("doctor", p_menu.stdout)
 
             # Unknown command returns exit 2
-            p_unk = run_cmd(["bash", str(wrapper), "unknown_cmd"], repo)
+            p_unk = run_wrapper(repo, "unknown_cmd")
             self.assertEqual(p_unk.returncode, 2)
 
             # Run doctor via wrapper with Japanese/space path & without uv on PATH (Python fallback)
             no_uv_bin = Path(td) / "bin_no_uv"
             no_uv_bin.mkdir()
-            for tool_name in ("python3", "git", "bash", "dirname", "pwd"):
-                found = shutil.which(tool_name)
-                if found:
-                    (no_uv_bin / tool_name).symlink_to(found)
-            p_fb = run_cmd(
-                ["bash", str(wrapper), "doctor", "--json"],
-                repo,
-                env={"PATH": str(no_uv_bin)},
-            )
+            if os.name == "nt":
+                def _dir_has_uv(d: Path) -> bool:
+                    return any((d / name).is_file() for name in ("uv.exe", "uv.cmd", "uv.bat", "uv"))
+
+                def _find_git_exe_dir_without_uv(git_exe_str: str) -> Path | None:
+                    def _is_valid(cand: Path) -> bool:
+                        return (cand / "git.exe").is_file() and not _dir_has_uv(cand)
+
+                    git_path = Path(git_exe_str)
+                    if _is_valid(git_path.parent):
+                        return git_path.parent
+
+                    candidates: list[Path] = []
+                    try:
+                        candidates.append(git_path.resolve().parent)
+                    except OSError:
+                        pass
+
+                    exec_cmd = (
+                        ["cmd", "/d", "/c", "call", git_exe_str, "--exec-path"]
+                        if git_path.suffix.lower() in {".cmd", ".bat"}
+                        else [git_exe_str, "--exec-path"]
+                    )
+                    p_exec = run_cmd(exec_cmd, cwd=repo)
+                    if p_exec.returncode == 0 and p_exec.stdout.strip():
+                        exec_dir = Path(p_exec.stdout.strip())
+                        candidates.append(exec_dir)
+                        for anc in list(exec_dir.parents)[:4]:
+                            candidates.extend([anc / "cmd", anc / "bin", anc / "mingw64" / "bin", anc])
+
+                    for env_dir in os.environ.get("PATH", "").split(os.pathsep):
+                        if env_dir:
+                            candidates.append(Path(env_dir))
+
+                    seen: set[str] = set()
+                    for cand in candidates:
+                        norm = os.path.normcase(str(cand))
+                        if norm in seen:
+                            continue
+                        seen.add(norm)
+                        if _is_valid(cand):
+                            return cand
+                    return None
+
+                path_entries: list[str] = []
+                py_exe = Path(sys.executable)
+                if py_exe.name.lower() == "python.exe" and not _dir_has_uv(py_exe.parent):
+                    path_entries.append(str(py_exe.parent))
+                else:
+                    (no_uv_bin / "python.cmd").write_text(
+                        f'@echo off\r\nchcp 65001 >nul\r\n"{py_exe}" %*\r\n',
+                        encoding="utf-8",
+                        newline="",
+                    )
+                    path_entries.append(str(no_uv_bin))
+
+                git_exe = shutil.which("git")
+                self.assertIsNotNone(git_exe, "git must be available on PATH")
+                assert git_exe is not None
+                git_dir = _find_git_exe_dir_without_uv(git_exe)
+                if git_dir is None:
+                    self.skipTest("uv と同居していない実体 git.exe ディレクトリを特定できないためスキップ")
+                path_entries.append(str(git_dir))
+
+                system32 = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32"
+                path_entries.append(str(system32))
+                no_uv_path = os.pathsep.join(dict.fromkeys(path_entries))
+                self.assertIsNone(shutil.which("uv", path=no_uv_path))
+                p_fb = run_wrapper(repo, "doctor", "--json", env={"PATH": no_uv_path})
+            else:
+                for tool_name in ("python3", "git", "bash", "dirname", "pwd"):
+                    found = shutil.which(tool_name)
+                    if found:
+                        (no_uv_bin / tool_name).symlink_to(found)
+                p_fb = run_wrapper(repo, "doctor", "--json", env={"PATH": str(no_uv_bin)})
+
             self.assertEqual(p_fb.returncode, 0, p_fb.stdout + p_fb.stderr)
             d_fb = parse_json_output(p_fb)
             self.assertTrue(any("uv コマンドが見つかりません" in w for w in d_fb["warnings"]))
@@ -914,11 +982,17 @@ class TestDailyScriptsEndToEnd(unittest.TestCase):
             self.assertEqual(doc_ok["errors"], [])
             self.assertFalse(any("pr_template" in w for w in doc_ok["warnings"]))
 
-            # Symlink pr_template pointing outside repo root -> doctor must report ERROR
+    def test_doctor_rejects_external_symlink_pr_template(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            repo = setup_installed_repo(Path(td) / "symproj", integration_branch="main")
             ext_tpl = Path(td) / "outside_tpl.md"
             ext_tpl.write_text("## Outside\n", encoding="utf-8", newline="\n")
             sym_tpl = repo / ".github" / "escape_tpl.md"
-            sym_tpl.symlink_to(ext_tpl)
+            sym_tpl.parent.mkdir(parents=True, exist_ok=True)
+            create_symlink_or_skip(self, sym_tpl, ext_tpl)
+
+            m_path = repo / "management" / "aico-manifest.json"
+            m = json.loads(m_path.read_text(encoding="utf-8"))
             m["pr_template"] = ".github/escape_tpl.md"
             m_path.write_text(json.dumps(m, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
             p_doc_sym = run_script(repo, "doctor.py", "--json")
