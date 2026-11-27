@@ -24,7 +24,7 @@ from typing import Any
 from urllib.parse import urlparse
 from urllib.request import url2pathname
 
-AICO_VERSION = "0.1.0"
+AICO_VERSION = "0.2.0"
 DEFAULT_SOURCE_REPO = "https://github.com/sasaki819/AIco.git"
 MANAGED_BEGIN = "<!-- AICO:BEGIN -->"
 MANAGED_END = "<!-- AICO:END -->"

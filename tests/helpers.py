@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -74,15 +75,16 @@ def setup_installed_repo(
     integration_branch: str = "develop",
     tools: str = "claude,codex,antigravity,copilot",
     management_root: str = "management",
+    source_dir: Path = REPO_ROOT,
     commit: bool = True,
 ) -> Path:
     init_git_repo(repo_dir, default_branch=integration_branch)
     res = run_cmd(
         [
             sys.executable,
-            str(INSTALLER_DIR / "install.py"),
+            str(source_dir / "installer" / "install.py"),
             "--source",
-            str(REPO_ROOT),
+            str(source_dir),
             "--management-root",
             management_root,
         ],
@@ -195,7 +197,15 @@ def make_source_copy(dst_dir: Path, *, version: str, schema_version: int = 1, st
     for py_name in ("install.py", "upgrade.py"):
         py_p = dst_dir / "installer" / py_name
         txt = py_p.read_text(encoding="utf-8")
-        txt = txt.replace('AICO_VERSION = "0.1.0"', f'AICO_VERSION = "{version}"')
+        txt, replaced = re.subn(
+            r'^AICO_VERSION\s*=\s*"[^"]+"',
+            f'AICO_VERSION = "{version}"',
+            txt,
+            count=1,
+            flags=re.MULTILINE,
+        )
+        if replaced != 1:
+            raise AssertionError(f"AICO_VERSION assignment not found in {py_p}")
         py_p.write_text(txt, encoding="utf-8", newline="\n")
 
     if not strip_git:
