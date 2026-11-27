@@ -10,10 +10,12 @@
 ## 指摘一覧
 
 <!-- AICO:AUTO:BEGIN:findings -->
+
 | 指摘ID | タイトル | 重要度 | 状態 | 更新日時 |
 | :--- | :--- | :--- | :--- | :--- |
 | [implementation-round1-001-changelog-premature-dogfooding-verification](findings/implementation-round1-001-changelog-premature-dogfooding-verification.md) | CHANGELOG.md の未実施本番自己適用検証の先行断定とタグ前照合手順欠落 | minor | done | 2026-11-27 18:57:00 |
 | [implementation-round1-002-changelog-v020-summary-clarity](findings/implementation-round1-002-changelog-v020-summary-clarity.md) | CHANGELOG.md の update_changed_files.py 変更内容の曖昧さと品質ゲート記載漏れ | minor | done | 2026-11-27 18:57:00 |
 | [implementation-round1-003-plan-changed-files-before-merge](findings/implementation-round1-003-plan-changed-files-before-merge.md) | plan.md の 2 段構成手順にマージ前 update_changed_files.py 実行タイミングが欠落 | minor | done | 2026-11-27 18:57:00 |
 | [implementation-round1-004-version-consistency-test-missing](findings/implementation-round1-004-version-consistency-test-missing.md) | 配布原本 3 箇所のバージョン一致を自動検証するテストの不足 | minor | done | 2026-11-27 18:57:01 |
+
 <!-- AICO:AUTO:END:findings -->

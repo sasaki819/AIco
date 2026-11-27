@@ -26,7 +26,7 @@ description: 未選別（open）のレビュー指摘を人間へ提示し、人
 
 1. `review/findings/` から `status: open` の指摘をすべて読み込み、重要度・対象・根拠・AI 推奨判断を一覧化して人間へ提示する。
 2. **必ず人間の判断**を受け、各指摘の採否を確定する。AI は独断で採否を決定してはならない。
-3. 各指摘ファイルの `## 採否判断（人間選別）` に判断と理由を記入し、`update_frontmatter.py` で `status` を更新する（採用 → `in-progress`、見送り → `cancelled`）。
+3. 各指摘ファイルの `## 採否判断（人間選別）` に判断と理由を必ず記入し（見送り `cancelled` で理由が空欄だと `doctor.py` で `ERROR` となる）、`update_frontmatter.py` で `status` を更新する（採用 → `in-progress`、見送り → `cancelled`）。
    ```bash
    uv run <管理ルート>/scripts/update_frontmatter.py --file <指摘ファイル> --set status=<in-progress|cancelled> --json
    ```
@@ -42,4 +42,4 @@ description: 未選別（open）のレビュー指摘を人間へ提示し、人
 ## 報告形式
 
 * 採用件数・見送り件数および各指摘の判断一覧
-* 更新後の状態と次スキル案内（採用ありなら `aico-review-fix`）
+* 更新後の状態と、次のアクションを推奨案先頭の番号付き Markdown 選択肢（2〜4件）で案内する（採用ありなら `aico-review-fix`、全件見送りなら次フェーズ進行）

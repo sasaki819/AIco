@@ -10,9 +10,11 @@
 ## 指摘一覧
 
 <!-- AICO:AUTO:BEGIN:findings -->
+
 | 指摘ID | タイトル | 重要度 | 状態 | 更新日時 |
 | :--- | :--- | :--- | :--- | :--- |
 | [implementation-round1-001-win-no-uv-git-cmd-fallback](findings/implementation-round1-001-win-no-uv-git-cmd-fallback.md) | Windows no_uv_fallback テストで git と uv 同居時の git.cmd 実行が失敗する | major | done | 2026-11-27 10:56:42 |
 | [implementation-round1-002-win-cmd-shim-encoding-utf8-mode](findings/implementation-round1-002-win-cmd-shim-encoding-utf8-mode.md) | Windows no_uv_fallback テストの cmd シム生成で UTF-8 モード時に非 ASCII パスが文字化けする恐れ | minor | done | 2026-11-27 10:56:42 |
 | [implementation-round1-003-init-symlink-test-missing-error-assert](findings/implementation-round1-003-init-symlink-test-missing-error-assert.md) | test_init_rejects_external_symlink_pr_template で拒否理由のアサーションが欠けている | minor | done | 2026-11-27 10:56:42 |
+
 <!-- AICO:AUTO:END:findings -->

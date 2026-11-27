@@ -110,6 +110,7 @@ def emit_result(
     errors: list[str] | None = None,
     data: dict[str, Any] | None = None,
     exit_code: int | None = None,
+    emit_warnings_in_text: bool = True,
 ) -> int:
     """Emit structured JSON or human-readable output and return the exit code."""
     if exit_code is None:
@@ -128,9 +129,9 @@ def emit_result(
         sys.stdout.write(json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
     else:
         if text:
-            stream = sys.stdout if status == "ok" else sys.stderr
+            stream = sys.stdout if status != "error" else sys.stderr
             stream.write(text.rstrip("\n") + "\n")
-        if warnings:
+        if warnings and emit_warnings_in_text:
             for w in warnings:
                 sys.stderr.write(f"WARN: {w}\n")
         if errors and status != "ok":

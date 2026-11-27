@@ -43,6 +43,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="チケット index.md の変更ファイル一覧を Git 差分から更新する")
     parser.add_argument("--ticket", default=None, help="対象チケット ID またはパス（省略時は現在ブランチから自動特定）")
     parser.add_argument("--base", default=None, help="比較基点ブランチ（省略時は integration_branch）")
+    parser.add_argument(
+        "--committed-only",
+        action="store_true",
+        help="コミット済み差分（<base>...HEAD）のみを対象とする（未コミット変更を除外）",
+    )
     add_common_args(parser, dry_run=True, root=True, allow_non_integration=False)
     args = parser.parse_args()
 
@@ -74,17 +79,19 @@ def main() -> int:
     if not branch_exists(ctx.repo_root, base_branch):
         raise AicoError(f"比較基点ブランチが Git に存在しません: {base_branch}")
 
+    include_uncommitted = not args.committed_only
     warnings: list[str] = []
     is_dirty, _ = get_status_summary(ctx.repo_root)
-    if is_dirty:
+    if args.committed_only and is_dirty:
         warnings.append(
-            "作業ツリーに未コミット変更が残っています。diff にはコミット済み変更のみが含まれます"
+            "作業ツリーに未コミット変更が残っています。--committed-only 指定のためコミット済み変更のみが含まれます"
         )
 
     entries = get_diff_name_status(
         ctx.repo_root,
         base_branch,
         exclude_prefix=str(ctx.manifest["management_root"]),
+        include_uncommitted=include_uncommitted,
     )
     inner = _render_changed_files_table(entries)
 
@@ -114,6 +121,7 @@ def main() -> int:
         data={
             "base_branch": base_branch,
             "current_branch": current_branch,
+            "includes_uncommitted": include_uncommitted,
             "count": len(entries),
             "entries": [{"status": e.status, "path": e.path} for e in entries],
             "dry_run": args.dry_run,

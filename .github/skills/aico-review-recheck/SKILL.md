@@ -24,7 +24,7 @@ description: 独立コンテキストのワーカーへ委譲して指摘修正�
 
 ## 手順
 
-1. `status: in-progress` の指摘一覧と修正差分を、独立コンテキストのワーカー（**必須委譲**：原則 `worker-middle`、重要な設計レビュー時は `worker-high`）へ5項目委譲規約を満たして再確認を委譲する。
+1. `status: in-progress` の指摘一覧と修正差分を、独立コンテキストのワーカー（**必須委譲**：原則 `worker-middle`、重要な設計レビュー時は `worker-high`）へ5項目委譲規約を満たして再確認を委譲する。  
    サブエージェントワーカーへ委譲する際は、親セッションの会話履歴が引き継がれない前提で、必ず以下の5項目をプロンプトへ明示する。
 1. 参照する手順書・スキルパス
 2. 対象範囲（ファイル・調査対象・比較基点コミット等）
@@ -42,16 +42,16 @@ description: 独立コンテキストのワーカーへ委譲して指摘修正�
 5. チケット対象時は結果に応じて状態を更新する（Runbook 実施記録時は `phase_status` を更新しない）。
    * 新規指摘（`open`）あり → `phase_status: triaging`
    * 差し戻し（`in-progress`）あり（新規指摘なし）→ `phase_status: fixing`
-   * 当該フェーズの未解決指摘が 0 件 → 人間承認のうえ合意した次フェーズの `working`（`closing` 時は `status: done`・`closing / done`）
+   * 当該フェーズの未解決指摘が 0 件 → 人間承認のうえ、合意した次フェーズの `working`（`closing` 時は `status: done`・`closing / done`）、または同一フェーズで別レビュアーによる追加ラウンド（例：人間指摘の修正後に独立 AI レビューを追加実施）を行う場合は `phase_status: reviewing` へ更新し `aico-review` へ進む
 
 ## 完了条件と状態更新
 
 * 独立再確認結果がすべての対象指摘および `review/index.md` へ記録され、指摘一覧が再生成されていること。
-* チケット対象時：新規指摘あり → `<phase> / triaging`、差し戻しあり → `<phase> / fixing`、全件確認完了 → 合意した次フェーズ `working`（`closing` 時は `status: done` / `closing / done`）。
+* チケット対象時：新規指摘あり → `<phase> / triaging`、差し戻しあり → `<phase> / fixing`、全件確認完了 → 合意した次フェーズ `working`（`closing` 時は `status: done` / `closing / done`）または追加ラウンド実施時は `<phase> / reviewing`。
 * Runbook 実施記録対象時：解消指摘を `done`・新規指摘を `open` 作成（`phase_status` なし）。
 
 ## 報告形式
 
 * 解消件数・差し戻し件数・新規指摘件数
 * 確認した実行環境および未確認事項
-* 更新後の状態と次スキル案内
+* 更新後の状態と、次のアクションを推奨案先頭の番号付き Markdown 選択肢（2〜4件）で案内する（追加ラウンド `aico-review` や次フェーズ進行を含む）

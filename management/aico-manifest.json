@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "aico_version": "0.1.0",
+  "aico_version": "0.2.0",
   "source_repository": "https://github.com/sasaki819/AIco.git",
   "management_root": "management",
   "integration_branch": "main",

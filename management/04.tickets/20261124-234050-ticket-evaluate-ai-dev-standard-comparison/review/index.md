@@ -8,5 +8,7 @@
 ## 指摘一覧
 
 <!-- AICO:AUTO:BEGIN:findings -->
+
 該当する記録はない。
+
 <!-- AICO:AUTO:END:findings -->

@@ -48,13 +48,18 @@ def _render_markdown_worker(
     body: str,
     model: str,
     effort: str,
+    *,
+    effort_key: str | None = "effort",
 ) -> str:
     fm: dict[str, Any] = {"name": name, "description": description}
     if model.strip():
         fm["model"] = model.strip()
-    if effort.strip():
-        fm["effort"] = effort.strip()
-    return dump_frontmatter(fm, body, key_order=["name", "description", "model", "effort"])
+    if effort_key and effort.strip():
+        fm[effort_key] = effort.strip()
+    key_order = ["name", "description", "model"]
+    if effort_key:
+        key_order.append(effort_key)
+    return dump_frontmatter(fm, body, key_order=key_order)
 
 
 def _render_codex_worker_toml(
@@ -171,8 +176,12 @@ def plan_sync(ctx: AicoContext, *, only: str = "all") -> SyncPlan:
                     effort = str(cfg.get("effort", ""))
                     if tool == "codex":
                         rendered = _render_codex_worker_toml(name, desc, body, model, effort)
+                    elif tool == "antigravity":
+                        rendered = _render_markdown_worker(name, desc, body, model, effort, effort_key=None)
+                    elif tool == "copilot":
+                        rendered = _render_markdown_worker(name, desc, body, model, effort, effort_key="reasoning-effort")
                     else:
-                        rendered = _render_markdown_worker(name, desc, body, model, effort)
+                        rendered = _render_markdown_worker(name, desc, body, model, effort, effort_key="effort")
                     if not target.is_file() or read_text_utf8(target) != rendered:
                         plan.writes.append((target, rendered))
                 else:

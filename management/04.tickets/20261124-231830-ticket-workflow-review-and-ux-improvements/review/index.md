@@ -11,6 +11,7 @@
 ## 指摘一覧
 
 <!-- AICO:AUTO:BEGIN:findings -->
+
 | 指摘ID | タイトル | 重要度 | 状態 | 更新日時 |
 | :--- | :--- | :--- | :--- | :--- |
 | [implementation-round1-001-init-pr-template-validation-order-and-dir-check](findings/implementation-round1-001-init-pr-template-validation-order-and-dir-check.md) | init.py の pr_template 検証順序不備および既存ディレクトリ指定時の誤判定 | major | done | 2026-11-25 20:37:04 |
@@ -18,4 +19,5 @@
 | [implementation-round1-003-doctor-fence-closing-and-pr-template-symlink](findings/implementation-round1-003-doctor-fence-closing-and-pr-template-symlink.md) | doctor.py のコードフェンス終端判定および pr_template シンボリックリンク境界検査の抜け | minor | done | 2026-11-25 20:37:04 |
 | [implementation-round1-004-user-guide-ci-strict-uv-note](findings/implementation-round1-004-user-guide-ci-strict-uv-note.md) | ユーザーガイド CI 構成例における --strict 併用時の uv 不在 WARN 注意不足 | minor | done | 2026-11-25 20:37:04 |
 | [implementation-round1-005-doctor-fence-test-does-not-exercise-info-string-check](findings/implementation-round1-005-doctor-fence-test-does-not-exercise-info-string-check.md) | doctor.py 閉じフェンス回帰テストが末尾情報文字列チェック分岐を通過していない | minor | done | 2026-11-25 21:58:58 |
+
 <!-- AICO:AUTO:END:findings -->

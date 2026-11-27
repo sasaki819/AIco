@@ -12,6 +12,7 @@
 ## 指摘一覧
 
 <!-- AICO:AUTO:BEGIN:findings -->
+
 | 指摘ID | タイトル | 重要度 | 状態 | 更新日時 |
 | :--- | :--- | :--- | :--- | :--- |
 | [implementation-round1-001-user-guide-numbered-filenames](findings/implementation-round1-001-user-guide-numbered-filenames.md) | 04.user-guide 配下のファイル名に連番を付与する | minor | done | 2026-11-24 22:22:37 |
@@ -19,4 +20,5 @@
 | [implementation-round2-001-getting-started-step-number-mismatch](findings/implementation-round2-001-getting-started-step-number-mismatch.md) | 01.getting-started.md の既存プロジェクト参加者向け案内ステップ番号誤記 | major | done | 2026-11-24 22:49:16 |
 | [implementation-round2-002-init-text-duplicate-warn-and-stderr](findings/implementation-round2-002-init-text-duplicate-warn-and-stderr.md) | init.py テキストモードで WARN が二重出力され正常出力が stderr へ送出される | minor | done | 2026-11-24 22:49:16 |
 | [implementation-round2-003-cheatsheet-skill-count-mismatch](findings/implementation-round2-003-cheatsheet-skill-count-mismatch.md) | 03.cheatsheet.md および README.md の基本 6 スキル表記と実スキル数（7 個）の不一致 | minor | done | 2026-11-24 22:49:16 |
+
 <!-- AICO:AUTO:END:findings -->

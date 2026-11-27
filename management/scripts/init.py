@@ -28,6 +28,7 @@ from _lib.cli import (
     run_cli,
     to_posix_rel,
 )
+from _lib.fs import read_text_utf8, write_text_atomic
 from _lib.git_utils import (
     branch_exists,
     detect_default_integration_branch,
@@ -43,6 +44,7 @@ from _lib.manifest import (
     resolve_context,
     save_manifest,
     validate_manifest,
+    validate_pr_template_path,
 )
 
 
@@ -77,19 +79,34 @@ def _run_interactive_wizard(ctx: AicoContext) -> dict[str, Any]:
     else:
         default_integ = detect_default_integration_branch(ctx.repo_root) or cur_integ or "main"
 
+    mgmt_rel = str(manifest.get("management_root", "management"))
     print("=== AIco 初期設定ウィザード ===")
-    integ = _prompt("統合ブランチ名 (integration_branch)", default_integ)
+    print("（そのまま Enter を押すと [ ] 内の既定値が適用されます）")
+    integ = _prompt("統合ブランチ名 (integration_branch、例: main / develop)", default_integ)
     manifest["integration_branch"] = integ
 
     cur_tools = manifest.get("tools", list(ALLOWED_TOOLS))
     default_tools = ",".join(cur_tools) if isinstance(cur_tools, list) and cur_tools else ",".join(ALLOWED_TOOLS)
-    tools_raw = _prompt(f"有効化するツール ({','.join(ALLOWED_TOOLS)})", default_tools)
+    tools_raw = _prompt(f"有効化するツール (カンマ区切り: {','.join(ALLOWED_TOOLS)})", default_tools)
     manifest["tools"] = _parse_tools_csv(tools_raw)
 
     cur_src = str(manifest.get("source_repository", ""))
     src = _prompt("アップデート参照先 Git URL (オフライン専用なら '-' で空設定)", cur_src)
     manifest["source_repository"] = "" if src == "-" else src
 
+    cur_pr_tpl = str(manifest.get("pr_template", ""))
+    print(
+        "※PR/MR テンプレートパス（任意）: 指定先にファイルが無ければ AIco 推奨雛形を配置し、既存ファイルは上書きしません。\n"
+        "  代表例: GitHub=.github/pull_request_template.md / GitLab=.gitlab/merge_request_templates/Default.md / Azure DevOps=.azuredevops/pull_request_template.md\n"
+        "  複数テンプレート運用等で aico-ticket-pr を使わない場合は空のまま Enter（設定解除は '-'）してください。"
+    )
+    pr_tpl = _prompt("PR/MR テンプレートパス (pr_template)", cur_pr_tpl)
+    manifest["pr_template"] = "" if pr_tpl == "-" else pr_tpl
+
+    print(
+        f"※worker_models は空欄のままでも各ツールの既定モデルで動作します。"
+        f"おすすめ設定例は {mgmt_rel}/01.manual/05.worker-models.md を参照してください。"
+    )
     cfg_wm = _prompt("各ツールの worker_models を今すぐ設定しますか? (y/N)", "N").lower()
     if cfg_wm in ("y", "yes"):
         wm = manifest.setdefault("worker_models", {})
@@ -139,6 +156,11 @@ def main() -> int:
         default=None,
         help="aico-manifest.json の source_repository に保存する Git URL（オフライン専用時は空文字）",
     )
+    parser.add_argument(
+        "--pr-template",
+        default=None,
+        help="PR/MR テンプレートの既定ファイルパス（リポジトリルートからの相対パス。空文字で未設定）",
+    )
     add_common_args(parser, dry_run=True, root=True, allow_non_integration=False)
     args = parser.parse_args()
 
@@ -154,7 +176,7 @@ def main() -> int:
         )
 
     has_setting_args = any(
-        x is not None for x in (args.integration_branch, args.tools, args.source)
+        x is not None for x in (args.integration_branch, args.tools, args.source, args.pr_template)
     )
     interactive = (
         not has_setting_args
@@ -182,6 +204,11 @@ def main() -> int:
         if args.source is not None:
             new_manifest["source_repository"] = args.source.strip()
 
+        if args.pr_template is not None:
+            new_manifest["pr_template"] = args.pr_template.strip()
+        elif "pr_template" not in new_manifest:
+            new_manifest["pr_template"] = ""
+
     # Validate manifest and integration branch existence
     m_errors, m_warnings = validate_manifest(new_manifest)
     if m_errors:
@@ -192,9 +219,37 @@ def main() -> int:
     if not branch_exists(ctx.repo_root, integ) and cur_branch != integ:
         raise AicoError(f"指定された統合ブランチ '{integ}' が Git リポジトリに存在しません")
 
+    pr_tpl_rel = validate_pr_template_path(str(new_manifest.get("pr_template", "")))
+    new_manifest["pr_template"] = pr_tpl_rel
+
+    # Validate pr_template destination & source BEFORE writing aico-manifest.json
+    pr_dst: Path | None = None
+    pr_template_content: str | None = None
+    pr_template_action = "unset"
+    if pr_tpl_rel:
+        pr_dst = (ctx.repo_root / pr_tpl_rel).resolve()
+        try:
+            pr_dst.relative_to(ctx.repo_root.resolve())
+        except ValueError as exc:
+            raise AicoError(f"pr_template がリポジトリ外を参照しています: {pr_tpl_rel}") from exc
+        if pr_dst.exists():
+            if not pr_dst.is_file():
+                raise AicoError(f"pr_template の指定先にファイル以外（ディレクトリ等）が存在します: {pr_tpl_rel}")
+            pr_template_action = "kept_existing"
+        else:
+            pr_src = ctx.management_root / "templates" / "pr-template.md"
+            if not pr_src.is_file():
+                raise AicoError(f"PR/MR テンプレート雛形が見つかりません: {pr_src}")
+            pr_template_content = read_text_utf8(pr_src)
+            pr_template_action = "would_create" if args.dry_run else "created"
+
     changed: list[str] = []
     if save_manifest(ctx.manifest_path, new_manifest, dry_run=args.dry_run):
         changed.append(to_posix_rel(ctx.manifest_path, ctx.repo_root))
+
+    if pr_dst is not None and pr_template_content is not None:
+        if write_text_atomic(pr_dst, pr_template_content, dry_run=args.dry_run):
+            changed.append(to_posix_rel(pr_dst, ctx.repo_root))
 
     new_ctx = AicoContext(
         repo_root=ctx.repo_root,
@@ -246,15 +301,19 @@ def main() -> int:
                 "integration_branch": integ,
                 "tools": new_manifest["tools"],
                 "source_repository": new_manifest["source_repository"],
+                "pr_template": pr_tpl_rel,
+                "pr_template_action": pr_template_action,
                 "doctor": doctor_summary,
             },
             exit_code=EXIT_ERROR,
         )
 
     prefix = "[DRY-RUN] 初期設定予定" if args.dry_run else "初期設定完了"
+    pr_tpl_disp = f"{pr_tpl_rel} ({pr_template_action})" if pr_tpl_rel else "(未設定)"
     lines = [
         f"{prefix}: integration_branch={integ}, tools={','.join(new_manifest['tools'])}, "
-        f"source_repository={new_manifest['source_repository'] or '(未設定)'}",
+        f"source_repository={new_manifest['source_repository'] or '(未設定)'}, "
+        f"pr_template={pr_tpl_disp}",
         f"変更ファイル数: {len(changed)}",
     ]
     if doctor_summary is not None:
@@ -262,12 +321,26 @@ def main() -> int:
             f"doctor 診断結果: OK={doctor_summary.get('ok', 0)}, "
             f"WARN={doctor_summary.get('warn', 0)}, ERROR={doctor_summary.get('error', 0)}"
         )
+    mgmt_rel = str(new_manifest.get("management_root", "management"))
     if warnings:
-        lines.append("警告（必要に応じて worker_models 等を設定してください）:")
+        lines.append(
+            f"警告（エラーではないため各ツールの既定モデルでそのまま使い始められます。"
+            f"おすすめ設定例: {mgmt_rel}/01.manual/05.worker-models.md）:"
+        )
         for w in warnings[:10]:
             lines.append(f"  - {w}")
         if len(warnings) > 10:
             lines.append(f"  ... 他 {len(warnings) - 10} 件")
+    if not args.dry_run:
+        lines.extend(
+            [
+                "",
+                "次のステップ:",
+                "  1. 必要に応じて AGENTS.md のマーカー外へプロジェクト固有ルールを追記",
+                "  2. 導入・設定したファイルを初回コミット",
+                f"  3. {mgmt_rel}/01.manual/02.tutorial.md を見ながら最初の1チケットを試す",
+            ]
+        )
 
     return emit_result(
         as_json=args.as_json,
@@ -281,9 +354,12 @@ def main() -> int:
             "integration_branch": integ,
             "tools": new_manifest["tools"],
             "source_repository": new_manifest["source_repository"],
+            "pr_template": pr_tpl_rel,
+            "pr_template_action": pr_template_action,
             "doctor": doctor_summary,
         },
         exit_code=EXIT_OK,
+        emit_warnings_in_text=False,
     )
 
 

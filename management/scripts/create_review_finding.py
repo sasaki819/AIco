@@ -104,6 +104,12 @@ def main() -> int:
     parser.add_argument("--title", required=True, type=argparse_title, help="指摘の件名")
     parser.add_argument("--severity", required=True, choices=list(SEVERITIES), help="重要度")
     parser.add_argument("--reviewer", required=True, help="レビュー実施者")
+    parser.add_argument(
+        "--status",
+        choices=["open", "in-progress"],
+        default="open",
+        help="初期ステータス（既定: open。人間レビュー指摘の即採用時は in-progress）",
+    )
     parser.add_argument("--phase", choices=list(PHASES), default=None, help="対象フェーズ（チケット時のみ任意）")
     round_grp = parser.add_mutually_exclusive_group()
     round_grp.add_argument("--round", type=_positive_int, dest="round_num", default=None, help="ラウンド番号")
@@ -155,7 +161,7 @@ def main() -> int:
             "id": format_yaml_scalar(finding_id),
             "title": format_yaml_scalar(args.title),
             "title_raw": args.title,
-            "status": format_yaml_scalar("open"),
+            "status": format_yaml_scalar(args.status),
             "created": format_yaml_scalar(ts),
             "updated": format_yaml_scalar(ts),
             "severity": format_yaml_scalar(args.severity),
@@ -188,6 +194,7 @@ def main() -> int:
             "phase": phase,
             "round": round_num,
             "severity": args.severity,
+            "status": args.status,
         },
     )
 
