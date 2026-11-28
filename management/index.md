@@ -8,9 +8,9 @@
 
 | 区分 | 件数（状態内訳） | 一覧 |
 | :--- | :--- | :--- |
-| 議事録 | active: 0 / closed: 1 | [02.discussions/index.md](02.discussions/index.md) |
+| 議事録 | active: 0 / closed: 0 | [02.discussions/index.md](02.discussions/index.md) |
 | ADR | accepted: 0 / open: 0 / その他: 0 | [03.adr/index.md](03.adr/index.md) |
-| チケット | active: 0 / closed: 6 | [04.tickets/index.md](04.tickets/index.md) |
+| チケット | active: 0 / closed: 1 | [04.tickets/index.md](04.tickets/index.md) |
 | Runbook | 1件 | [05.runbooks/index.md](05.runbooks/index.md) |
 
 <!-- AICO:AUTO:END:summary -->

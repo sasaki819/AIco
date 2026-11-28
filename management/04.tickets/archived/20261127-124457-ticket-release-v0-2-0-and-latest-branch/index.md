@@ -77,7 +77,7 @@ adrs: []
 
 ## 親子チケット・関連
 
-* [導入・移行・リリース仕様（4.2 節・5 節）](../../../docs/03.spec/08.adoption-and-migration.md)
+* [導入・移行・リリース仕様（4.2 節・5 節）](../../../../docs/03.spec/08.adoption-and-migration.md)
 * [v0.2.0 包含チケット 1：初見ユーザー向けガイド整備と導入・初期設定ツール UX 改善](../20261124-155511-ticket-onboarding-docs-and-cli-ux/index.md)
 * [v0.2.0 包含チケット 2：ai-dev-standard との比較評価および優位要素の取り込み検討](../20261124-234050-ticket-evaluate-ai-dev-standard-comparison/index.md)
 * [v0.2.0 包含チケット 3：レビューフロー・クローズ手順・AI 進行案内の UX 改善](../20261124-231830-ticket-workflow-review-and-ux-improvements/index.md)

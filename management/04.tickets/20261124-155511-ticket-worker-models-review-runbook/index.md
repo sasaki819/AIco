@@ -63,5 +63,5 @@ adrs: []
 
 ## 親子チケット・関連
 
-* [議事録：初見ユーザー向けの導入・利用ハードル低減の整備](../../02.discussions/20261124-140309-discussion-onboarding-improvement.md)
-* [先行チケット：初見ユーザー向けガイド整備と導入・初期設定ツール UX 改善](../20261124-155511-ticket-onboarding-docs-and-cli-ux/index.md)
+* [議事録：初見ユーザー向けの導入・利用ハードル低減の整備](../../02.discussions/archived/20261124-140309-discussion-onboarding-improvement.md)
+* [先行チケット：初見ユーザー向けガイド整備と導入・初期設定ツール UX 改善](../archived/20261124-155511-ticket-onboarding-docs-and-cli-ux/index.md)

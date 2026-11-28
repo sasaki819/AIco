@@ -81,10 +81,10 @@ AIco を初めて知り導入・利用しようとする若手エンジニアに
 
 ## 関連
 
-* [チケット 1：初見ユーザー向けガイド整備と導入・初期設定ツール UX 改善](../04.tickets/20261124-155511-ticket-onboarding-docs-and-cli-ux/index.md)
-* [チケット 2：worker_models おすすめ設定見直し用 Runbook の作成](../04.tickets/20261124-155511-ticket-worker-models-review-runbook/index.md)
-* [README.md](../../README.md)
-* [06. エージェント・スキル方針](../../docs/02.policy/06.agent-and-skills.md)
-* [08. 導入・移行・リリース仕様](../../docs/03.spec/08.adoption-and-migration.md)
-* [installer/install.py](../../installer/install.py)
-* [template/management/scripts/init.py](../../template/management/scripts/init.py)
+* [チケット 1：初見ユーザー向けガイド整備と導入・初期設定ツール UX 改善](../../04.tickets/archived/20261124-155511-ticket-onboarding-docs-and-cli-ux/index.md)
+* [チケット 2：worker_models おすすめ設定見直し用 Runbook の作成](../../04.tickets/20261124-155511-ticket-worker-models-review-runbook/index.md)
+* [README.md](../../../README.md)
+* [06. エージェント・スキル方針](../../../docs/02.policy/06.agent-and-skills.md)
+* [08. 導入・移行・リリース仕様](../../../docs/03.spec/08.adoption-and-migration.md)
+* [installer/install.py](../../../installer/install.py)
+* [template/management/scripts/init.py](../../../template/management/scripts/init.py)

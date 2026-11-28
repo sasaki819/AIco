@@ -99,5 +99,5 @@ AI エージェントを最近プロジェクトで使い始めた若手エン�
 
 ## 親子チケット・関連
 
-* [議事録：初見ユーザー向けの導入・利用ハードル低減の整備](../../02.discussions/20261124-140309-discussion-onboarding-improvement.md)
-* [関連チケット：worker_models おすすめ設定見直し用 Runbook の作成](../20261124-155511-ticket-worker-models-review-runbook/index.md)
+* [議事録：初見ユーザー向けの導入・利用ハードル低減の整備](../../../02.discussions/archived/20261124-140309-discussion-onboarding-improvement.md)
+* [関連チケット：worker_models おすすめ設定見直し用 Runbook の作成](../../20261124-155511-ticket-worker-models-review-runbook/index.md)

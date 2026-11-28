@@ -59,4 +59,4 @@ AIco の前身・着想元である `ai-dev-standard`（`https://gitlab.sasaki81
 ## 親子チケット・関連
 
 * [関連チケット：レビューフロー・クローズ手順・AI 進行案内の UX 改善](../20261124-231830-ticket-workflow-review-and-ux-improvements/index.md)
-* [関連チケット：worker_models おすすめ設定見直し用 Runbook の作成](../20261124-155511-ticket-worker-models-review-runbook/index.md)
+* [関連チケット：worker_models おすすめ設定見直し用 Runbook の作成](../../20261124-155511-ticket-worker-models-review-runbook/index.md)
