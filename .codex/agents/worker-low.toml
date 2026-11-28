@@ -1,6 +1,6 @@
 name = "worker-low"
 description = "定型手順の実行・情報抽出・整形・定型報告を担当する軽量高速ワーカー"
-model = "gpt-6-luna"
+model = "gpt-6.2-sol"
 model_reasoning_effort = "low"
 developer_instructions = """
 # worker-low

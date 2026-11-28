@@ -1,7 +1,7 @@
 ---
 name: worker-high
 description: 複雑な設計判断・難しい原因分析・深い調査・重要レビューを担当する高精度ワーカー
-model: gemini-4-neon
+model: pro
 ---
 
 # worker-high

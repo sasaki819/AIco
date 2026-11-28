@@ -1,8 +1,8 @@
 ---
 name: worker-middle
 description: 意図を汲む実装・一般的な独立レビュー・定型外の修正を担当するバランス型ワーカー
-model: claude-sonnet-5-5
-effort: medium
+model: sonnet
+effort: high
 ---
 
 # worker-middle

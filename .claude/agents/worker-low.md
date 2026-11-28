@@ -1,8 +1,8 @@
 ---
 name: worker-low
 description: 定型手順の実行・情報抽出・整形・定型報告を担当する軽量高速ワーカー
-model: claude-haiku-5-5
-effort: low
+model: haiku
+effort: high
 ---
 
 # worker-low
